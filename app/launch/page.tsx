@@ -76,6 +76,9 @@ export default function LaunchPage() {
   const [launchFeeWei, setLaunchFeeWei] = useState<bigint>(500000000000000n)
   const [fetchingFee, setFetchingFee] = useState(false)
   const [deploying, setDeploying] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  // Ref to track the committed server URL — set after successful upload, read at launch time
+  const committedLogoRef = useRef<string>('')
 
   const fetchFee = useCallback(async () => {
     setFetchingFee(true)
@@ -137,49 +140,40 @@ export default function LaunchPage() {
         canvas.width = w
         canvas.height = h
         const ctx = canvas.getContext('2d')
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, w, h)
-          const dataUrl = canvas.toDataURL('image/webp', 0.90)
-          // Show preview with local data URL first
-          setLogo(dataUrl)
-          try {
-            const res = await fetch('/api/upload', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ image: dataUrl }),
-            })
-            if (res.ok) {
-              const data = await res.json()
-              // Use full public HTTPS URL for display and on-chain (works on all aggregators)
-              const displayUrl = data.publicUrl || data.relativeUrl || dataUrl
-              setLogo(displayUrl)
+        const raw = ctx ? canvas.toDataURL('image/webp', 0.90) : (event.target?.result as string)
+        ctx?.drawImage(img, 0, 0, w, h)
+
+        // 1. Show local preview immediately
+        setLogo(raw)
+        committedLogoRef.current = ''
+        setUploadingImage(true)
+
+        try {
+          const res = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: raw }),
+          })
+          if (res.ok) {
+            const data = await res.json()
+            // Use full public HTTPS URL — accessible by GMGN, DexScreener, Pons on-chain
+            const serverUrl = data.publicUrl || data.localUrl || ''
+            if (serverUrl) {
+              committedLogoRef.current = serverUrl
+              setLogo(serverUrl)
             }
-          } catch (e) {
-            console.warn('Upload to server failed, using local preview', e)
           }
-          toast.success('Logo image uploaded!')
-        } else {
-          const raw = event.target?.result as string
-          setLogo(raw)
-          try {
-            const res = await fetch('/api/upload', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ image: raw }),
-            })
-            if (res.ok) {
-              const data = await res.json()
-              const displayUrl = data.publicUrl || data.relativeUrl || raw
-              setLogo(displayUrl)
-            }
-          } catch (e) {
-            console.warn('Upload failed', e)
-          }
+        } catch (e) {
+          console.warn('Upload to server failed, will use data URL fallback at deploy time', e)
+        } finally {
+          setUploadingImage(false)
+          toast.success('Logo ready!')
         }
       }
       img.src = event.target?.result as string
     }
     reader.readAsDataURL(file)
+
   }
 
   function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -230,6 +224,12 @@ export default function LaunchPage() {
       return
     }
 
+    // ── Wait for image upload to complete before opening Privy wallet ──
+    if (uploadingImage) {
+      toast('⏳ Uploading logo... please wait a moment before launching.', { duration: 3000 })
+      return
+    }
+
     setDeploying(true)
 
     try {
@@ -257,10 +257,12 @@ export default function LaunchPage() {
       // Ensure logo is a full public HTTPS URL accessible by external sites (GMGN, DexScreener, Pons)
       // Smart contract validates <= 200 chars
       const FALLBACK_LOGO = 'https://launchsparkle.fun/sparkle-logo.svg'
-      let finalLogo = logo.trim()
+      // Use the server-confirmed URL from upload (stored in ref), fallback to logo state
+      let finalLogo = committedLogoRef.current || logo.trim()
 
-      // If still a base64 data URL (upload didn't complete), upload now
+      // If still a base64 data URL (upload failed), upload now and block
       if (finalLogo.startsWith('data:')) {
+        toast('⏳ Uploading logo to server...')
         try {
           const res = await fetch('/api/upload', {
             method: 'POST',
@@ -269,7 +271,8 @@ export default function LaunchPage() {
           })
           if (res.ok) {
             const data = await res.json()
-            finalLogo = data.publicUrl || data.relativeUrl || ''
+            finalLogo = data.publicUrl || data.localUrl || ''
+            committedLogoRef.current = finalLogo
           }
         } catch {
           finalLogo = ''
@@ -281,13 +284,13 @@ export default function LaunchPage() {
         finalLogo = `https://launchsparkle.fun${finalLogo}`
       }
 
-      // Convert ipfs:// to gateway URL (since local IPFS isn't pinned to real network)
+      // Convert ipfs:// to gateway URL (since we can't guarantee real IPFS pinning)
       if (finalLogo.startsWith('ipfs://')) {
         finalLogo = `https://ipfs.io/ipfs/${finalLogo.replace('ipfs://', '')}`
       }
 
-      // Final validation: must be non-empty and <= 200 chars
-      if (!finalLogo || finalLogo.length > 200) {
+      // Final validation: must be non-empty, full URL, and <= 200 chars
+      if (!finalLogo || !finalLogo.startsWith('https://') || finalLogo.length > 200) {
         finalLogo = FALLBACK_LOGO
       }
 
@@ -931,10 +934,14 @@ export default function LaunchPage() {
                   <Button
                     variant="primary"
                     onClick={handleLaunchToken}
-                    loading={deploying}
+                    loading={deploying || uploadingImage}
                     className="w-full py-4 text-sm font-extrabold shadow-xl shadow-emerald-950/50"
                   >
-                    {deploying ? 'Deploying to Robinhood Chain...' : `Deploy $${symbol || 'TOKEN'} on Curve`}
+                    {uploadingImage
+                      ? '⏳ Uploading logo...'
+                      : deploying
+                      ? 'Deploying to Robinhood Chain...'
+                      : `Deploy $${symbol || 'TOKEN'} on Curve`}
                   </Button>
                 )}
               </div>
