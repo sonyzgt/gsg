@@ -5,49 +5,71 @@ import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
 
-async function uploadToPublicCdn(buffer: Buffer, ext: string): Promise<string | null> {
+/**
+ * Upload to Pinata IPFS (if credentials provided in .env)
+ */
+async function uploadToPinata(buffer: Buffer, ext: string, fileName: string): Promise<string | null> {
+  const jwt = process.env.PINATA_JWT
+  const apiKey = process.env.PINATA_API_KEY
+  const secretKey = process.env.PINATA_SECRET_API_KEY
+
+  if (!jwt && (!apiKey || !secretKey)) return null
+
   try {
     const uint8 = new Uint8Array(buffer)
     const blob = new Blob([uint8], { type: `image/${ext === 'jpg' ? 'jpeg' : ext}` })
     const formData = new FormData()
-    formData.append('reqtype', 'fileupload')
-    formData.append('fileToUpload', blob, `token_logo.${ext}`)
+    formData.append('file', blob, fileName)
 
-    const res = await fetch('https://catbox.moe/user/api.php', {
+    const headers: Record<string, string> = {}
+    if (jwt) {
+      headers['Authorization'] = `Bearer ${jwt}`
+    } else if (apiKey && secretKey) {
+      headers['pinata_api_key'] = apiKey
+      headers['pinata_secret_api_key'] = secretKey
+    }
+
+    const res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
       method: 'POST',
+      headers,
       body: formData,
     })
 
     if (res.ok) {
-      const publicUrl = await res.text()
-      if (publicUrl && publicUrl.startsWith('http')) {
-        return publicUrl.trim()
+      const data = await res.json()
+      if (data.IpfsHash) {
+        return `ipfs://${data.IpfsHash}`
       }
     }
   } catch (e) {
-    console.warn('Public CDN upload fallback:', e)
+    console.warn('[IPFS] Pinata upload error:', e)
   }
+  return null
+}
 
-  // Backup public upload provider (tmpfiles)
+/**
+ * Upload to Lighthouse Storage Public IPFS (Decentralized, accessible by DexScreener, GMGN, Blockscout)
+ */
+async function uploadToPublicIpfs(buffer: Buffer, ext: string, fileName: string): Promise<string | null> {
   try {
     const uint8 = new Uint8Array(buffer)
     const blob = new Blob([uint8], { type: `image/${ext === 'jpg' ? 'jpeg' : ext}` })
     const formData = new FormData()
-    formData.append('file', blob, `token_logo.${ext}`)
+    formData.append('file', blob, fileName)
 
-    const res = await fetch('https://tmpfiles.org/api/v1/upload', {
+    const res = await fetch('https://node.lighthouse.storage/api/v0/add', {
       method: 'POST',
       body: formData,
     })
 
     if (res.ok) {
-      const json = await res.json()
-      if (json.data?.url) {
-        return json.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/')
+      const data = await res.json()
+      if (data.Hash) {
+        return `ipfs://${data.Hash}`
       }
     }
-  } catch {
-    // ignore
+  } catch (e) {
+    console.warn('[IPFS] Public IPFS node fallback error:', e)
   }
 
   return null
@@ -92,21 +114,27 @@ export async function POST(req: NextRequest) {
     await mkdir(uploadDir, { recursive: true })
     await writeFile(path.join(uploadDir, fileName), buffer)
 
-    // 2. Upload to Global Public CDN so Blockscout, Dexscreener & other websites can view it
-    const publicCdnUrl = await uploadToPublicCdn(buffer, ext)
+    // 2. Upload to IPFS (Pinata -> Lighthouse Public IPFS)
+    let ipfsUri = await uploadToPinata(buffer, ext, fileName)
+    if (!ipfsUri) {
+      ipfsUri = await uploadToPublicIpfs(buffer, ext, fileName)
+    }
 
     const host = req.headers.get('host') || 'localhost:3001'
     const protocol = host.includes('localhost') ? 'http' : 'https'
     const localUrl = `${protocol}://${host}/uploads/${fileName}`
     const relativeUrl = `/uploads/${fileName}`
 
-    // Use reliable relative /uploads/ path for the app, with fallback
-    const finalUrl = relativeUrl
+    // If IPFS was successfully pinned, use HTTPS IPFS gateway URL or ipfs:// (Dexscreener & GMGN compliant)
+    // Format: https://ipfs.io/ipfs/<CID> or ipfs://<CID>
+    const ipfsGatewayUrl = ipfsUri ? `https://ipfs.io/ipfs/${ipfsUri.replace('ipfs://', '')}` : null
+    const finalUrl = ipfsGatewayUrl || relativeUrl
 
     return NextResponse.json({
       success: true,
       url: finalUrl,
-      publicUrl: publicCdnUrl || localUrl,
+      ipfsUri: ipfsUri || null,
+      ipfsUrl: ipfsGatewayUrl,
       localUrl,
       relativeUrl,
       fileName,

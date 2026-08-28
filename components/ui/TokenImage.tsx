@@ -11,6 +11,13 @@ interface TokenImageProps {
   sparkleSize?: number
 }
 
+const IPFS_GATEWAYS = [
+  'https://ipfs.io/ipfs/',
+  'https://gateway.pinata.cloud/ipfs/',
+  'https://cloudflare-ipfs.com/ipfs/',
+  'https://dweb.link/ipfs/',
+]
+
 export default function TokenImage({
   src,
   alt = 'Token Logo',
@@ -18,6 +25,7 @@ export default function TokenImage({
   className = 'w-full h-full object-cover',
   sparkleSize,
 }: TokenImageProps) {
+  const [gatewayIndex, setGatewayIndex] = useState(0)
   const [hasError, setHasError] = useState(false)
 
   // Normalize image source
@@ -25,6 +33,13 @@ export default function TokenImage({
     if (!src || hasError) return null
     const trimmed = src.trim()
     if (!trimmed || trimmed === '/logo.svg' || trimmed === 'null' || trimmed === 'undefined') return null
+
+    // IPFS URI resolution (e.g. ipfs://Qm... or ipfs://bafy...)
+    if (trimmed.startsWith('ipfs://')) {
+      const cid = trimmed.replace('ipfs://', '')
+      const gateway = IPFS_GATEWAYS[gatewayIndex] || IPFS_GATEWAYS[0]
+      return `${gateway}${cid}`
+    }
 
     // If it points to an /uploads/ path on any host/port, normalize to relative /uploads/
     if (trimmed.includes('/uploads/')) {
@@ -43,13 +58,22 @@ export default function TokenImage({
     )
   }
 
+  function handleError() {
+    if (src && src.trim().startsWith('ipfs://') && gatewayIndex < IPFS_GATEWAYS.length - 1) {
+      // Try next IPFS gateway before giving up
+      setGatewayIndex((prev) => prev + 1)
+    } else {
+      setHasError(true)
+    }
+  }
+
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={cleanSrc}
       alt={alt}
       className={className}
-      onError={() => setHasError(true)}
+      onError={handleError}
       loading="lazy"
     />
   )
