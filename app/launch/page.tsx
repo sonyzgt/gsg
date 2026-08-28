@@ -122,7 +122,7 @@ export default function LaunchPage() {
       const img = new window.Image()
       img.onload = async () => {
         const canvas = document.createElement('canvas')
-        const maxDim = 320
+        const maxDim = 512
         let w = img.width
         let h = img.height
         if (w > maxDim || h > maxDim) {
@@ -139,16 +139,42 @@ export default function LaunchPage() {
         const ctx = canvas.getContext('2d')
         if (ctx) {
           ctx.drawImage(img, 0, 0, w, h)
-          const dataUrl = canvas.toDataURL('image/webp', 0.88)
+          const dataUrl = canvas.toDataURL('image/webp', 0.90)
+          // Show preview with local data URL first
           setLogo(dataUrl)
-          const serverUrl = await uploadImageToServer(dataUrl)
-          if (serverUrl) setLogo(serverUrl)
+          try {
+            const res = await fetch('/api/upload', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: dataUrl }),
+            })
+            if (res.ok) {
+              const data = await res.json()
+              // Use full public HTTPS URL for display and on-chain (works on all aggregators)
+              const displayUrl = data.publicUrl || data.relativeUrl || dataUrl
+              setLogo(displayUrl)
+            }
+          } catch (e) {
+            console.warn('Upload to server failed, using local preview', e)
+          }
           toast.success('Logo image uploaded!')
         } else {
           const raw = event.target?.result as string
           setLogo(raw)
-          const serverUrl = await uploadImageToServer(raw)
-          if (serverUrl) setLogo(serverUrl)
+          try {
+            const res = await fetch('/api/upload', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: raw }),
+            })
+            if (res.ok) {
+              const data = await res.json()
+              const displayUrl = data.publicUrl || data.relativeUrl || raw
+              setLogo(displayUrl)
+            }
+          } catch (e) {
+            console.warn('Upload failed', e)
+          }
         }
       }
       img.src = event.target?.result as string
@@ -228,18 +254,41 @@ export default function LaunchPage() {
       // Fetch exact launch fee — MUST be exact or LaunchFeeNotPaid reverts
       const exactLaunchFee = await getLaunchFee()
 
-      // Ensure logo is a valid public URL <= 200 chars for smart contract validation
+      // Ensure logo is a full public HTTPS URL accessible by external sites (GMGN, DexScreener, Pons)
+      // Smart contract validates <= 200 chars
+      const FALLBACK_LOGO = 'https://launchsparkle.fun/sparkle-logo.svg'
       let finalLogo = logo.trim()
-      if (!finalLogo || finalLogo.length > 200 || finalLogo.startsWith('data:')) {
-        if (finalLogo.startsWith('data:')) {
-          const uploaded = await uploadImageToServer(finalLogo)
-          finalLogo = uploaded && uploaded.length <= 200 ? uploaded : 'https://launchsparkle.fun/sparkle-logo.svg'
-        } else {
-          finalLogo = 'https://launchsparkle.fun/sparkle-logo.svg'
+
+      // If still a base64 data URL (upload didn't complete), upload now
+      if (finalLogo.startsWith('data:')) {
+        try {
+          const res = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: finalLogo }),
+          })
+          if (res.ok) {
+            const data = await res.json()
+            finalLogo = data.publicUrl || data.relativeUrl || ''
+          }
+        } catch {
+          finalLogo = ''
         }
-      } else if (finalLogo.startsWith('/uploads/')) {
-        const origin = typeof window !== 'undefined' ? window.location.origin : 'https://launchsparkle.fun'
-        finalLogo = `${origin}${finalLogo}`
+      }
+
+      // Convert relative path to full public HTTPS URL
+      if (finalLogo.startsWith('/uploads/') || finalLogo.startsWith('/')) {
+        finalLogo = `https://launchsparkle.fun${finalLogo}`
+      }
+
+      // Convert ipfs:// to gateway URL (since local IPFS isn't pinned to real network)
+      if (finalLogo.startsWith('ipfs://')) {
+        finalLogo = `https://ipfs.io/ipfs/${finalLogo.replace('ipfs://', '')}`
+      }
+
+      // Final validation: must be non-empty and <= 200 chars
+      if (!finalLogo || finalLogo.length > 200) {
+        finalLogo = FALLBACK_LOGO
       }
 
       const socialsData = {

@@ -239,18 +239,40 @@ export default function CreateTokenModal({
       // Fetch exact launch fee â€” MUST be exact or LaunchFeeNotPaid reverts
       const exactLaunchFee = await getLaunchFee()
 
-      // Ensure logo is a valid public URL <= 200 chars for smart contract validation
+      // Ensure logo is a full public HTTPS URL accessible by GMGN, DexScreener, Pons
+      const FALLBACK_LOGO = 'https://launchsparkle.fun/sparkle-logo.svg'
       let finalLogo = logo.trim()
-      if (!finalLogo || finalLogo.length > 200 || finalLogo.startsWith('data:')) {
-        if (finalLogo.startsWith('data:')) {
-          const uploaded = await uploadImageToServer(finalLogo)
-          finalLogo = uploaded && uploaded.length <= 200 ? uploaded : 'https://launchsparkle.fun/sparkle-logo.svg'
-        } else {
-          finalLogo = 'https://launchsparkle.fun/sparkle-logo.svg'
+
+      // If still base64, upload now
+      if (finalLogo.startsWith('data:')) {
+        try {
+          const res = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: finalLogo }),
+          })
+          if (res.ok) {
+            const data = await res.json()
+            finalLogo = data.publicUrl || data.relativeUrl || ''
+          }
+        } catch {
+          finalLogo = ''
         }
-      } else if (finalLogo.startsWith('/uploads/')) {
-        const origin = typeof window !== 'undefined' ? window.location.origin : 'https://launchsparkle.fun'
-        finalLogo = `${origin}${finalLogo}`
+      }
+
+      // Convert relative path to full HTTPS URL
+      if (finalLogo.startsWith('/uploads/') || finalLogo.startsWith('/')) {
+        finalLogo = `https://launchsparkle.fun${finalLogo}`
+      }
+
+      // Convert ipfs:// to gateway URL
+      if (finalLogo.startsWith('ipfs://')) {
+        finalLogo = `https://ipfs.io/ipfs/${finalLogo.replace('ipfs://', '')}`
+      }
+
+      // Final validation
+      if (!finalLogo || finalLogo.length > 200) {
+        finalLogo = FALLBACK_LOGO
       }
 
       const socialsData = {
