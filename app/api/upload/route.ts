@@ -120,22 +120,24 @@ export async function POST(req: NextRequest) {
       ipfsUri = await uploadToPublicIpfs(buffer, ext, fileName)
     }
 
-    const host = req.headers.get('host') || 'localhost:3001'
-    const protocol = host.includes('localhost') ? 'http' : 'https'
-    const localUrl = `${protocol}://${host}/uploads/${fileName}`
+    const rawHost = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'launchsparkle.fun'
+    const isLocal = rawHost.includes('localhost') || rawHost.includes('127.0.0.1')
+    const proto = req.headers.get('x-forwarded-proto') || (isLocal ? 'http' : 'https')
+    const baseOrigin = isLocal ? `http://${rawHost}` : (rawHost.includes('launchsparkle.fun') ? 'https://launchsparkle.fun' : `${proto}://${rawHost}`)
+    const fullPublicUrl = `${baseOrigin}/uploads/${fileName}`
     const relativeUrl = `/uploads/${fileName}`
 
-    // If IPFS was successfully pinned, use HTTPS IPFS gateway URL or ipfs:// (Dexscreener & GMGN compliant)
-    // Format: https://ipfs.io/ipfs/<CID> or ipfs://<CID>
+    // If IPFS was successfully pinned, use HTTPS IPFS gateway URL, otherwise use the full public HTTPS URL
     const ipfsGatewayUrl = ipfsUri ? `https://ipfs.io/ipfs/${ipfsUri.replace('ipfs://', '')}` : null
-    const finalUrl = ipfsGatewayUrl || relativeUrl
+    const finalUrl = ipfsGatewayUrl || fullPublicUrl
 
     return NextResponse.json({
       success: true,
       url: finalUrl,
+      publicUrl: fullPublicUrl,
       ipfsUri: ipfsUri || null,
       ipfsUrl: ipfsGatewayUrl,
-      localUrl,
+      localUrl: fullPublicUrl,
       relativeUrl,
       fileName,
     })

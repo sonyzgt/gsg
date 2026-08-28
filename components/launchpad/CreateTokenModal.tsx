@@ -239,15 +239,18 @@ export default function CreateTokenModal({
       // Fetch exact launch fee â€” MUST be exact or LaunchFeeNotPaid reverts
       const exactLaunchFee = await getLaunchFee()
 
-      // Ensure logo is a short URL <= 200 chars for smart contract validation
+      // Ensure logo is a valid public URL <= 200 chars for smart contract validation
       let finalLogo = logo.trim()
       if (!finalLogo || finalLogo.length > 200 || finalLogo.startsWith('data:')) {
         if (finalLogo.startsWith('data:')) {
           const uploaded = await uploadImageToServer(finalLogo)
-          finalLogo = uploaded && uploaded.length <= 200 ? uploaded : 'https://ponsfamily.com/pons.png'
+          finalLogo = uploaded && uploaded.length <= 200 ? uploaded : 'https://launchsparkle.fun/sparkle-logo.svg'
         } else {
-          finalLogo = 'https://ponsfamily.com/pons.png'
+          finalLogo = 'https://launchsparkle.fun/sparkle-logo.svg'
         }
+      } else if (finalLogo.startsWith('/uploads/')) {
+        const origin = typeof window !== 'undefined' ? window.location.origin : 'https://launchsparkle.fun'
+        finalLogo = `${origin}${finalLogo}`
       }
 
       const socialsData = {
