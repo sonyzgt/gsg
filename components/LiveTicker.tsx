@@ -19,6 +19,13 @@ export default function LiveTicker() {
   const [tokens, setTokens] = useState<TickerLaunchEvent[]>([])
 
   useEffect(() => {
+    // Clear any old ticker local storage cache from previous versions
+    try {
+      localStorage.removeItem('sparkle_live_ticker_events_v4')
+      localStorage.removeItem('sparkle_live_ticker_events_v3')
+      localStorage.removeItem('sparkle_live_ticker_events')
+    } catch { /* ignore */ }
+
     async function fetchLaunchedTokens() {
       try {
         const res = await fetch('/api/launchpad/tokens')
