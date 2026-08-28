@@ -6,92 +6,94 @@ import crypto from 'crypto'
 export const dynamic = 'force-dynamic'
 
 /**
- * Calculates standard IPFS UnixFS CIDv0 (Qm...) from a file buffer in pure JS
+ * Upload ke Pinata IPFS (jika PINATA_JWT ada di .env)
  */
-function calculateIpfsCidV0(buffer: Buffer): string {
-  function encodeVarint(val: number): Buffer {
-    const bytes: number[] = []
-    while (val >= 0x80) {
-      bytes.push((val & 0x7f) | 0x80)
-      val = val >>> 7
-    }
-    bytes.push(val)
-    return Buffer.from(bytes)
-  }
-
-  // UnixFS protobuf Node { Data: UnixFS { Type: 2 (File), Data: buffer, filesize: len } }
-  const dataHeader = Buffer.from([0x08, 0x02])
-  const dataField = Buffer.concat([Buffer.from([0x12]), encodeVarint(buffer.length), buffer])
-  const sizeField = Buffer.concat([Buffer.from([0x18]), encodeVarint(buffer.length)])
-  const unixFsData = Buffer.concat([dataHeader, dataField, sizeField])
-
-  const nodePb = Buffer.concat([Buffer.from([0x0a]), encodeVarint(unixFsData.length), unixFsData])
-  const sha256 = crypto.createHash('sha256').update(nodePb).digest()
-  const multihash = Buffer.concat([Buffer.from([0x12, 0x20]), sha256])
-
-  // Base58btc encode
-  const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-  const digits = [0]
-  for (let i = 0; i < multihash.length; i++) {
-    let carry = multihash[i]
-    for (let j = 0; j < digits.length; j++) {
-      carry += digits[j] << 8
-      digits[j] = carry % 58
-      carry = (carry / 58) | 0
-    }
-    while (carry > 0) {
-      digits.push(carry % 58)
-      carry = (carry / 58) | 0
-    }
-  }
-  let str = ''
-  for (let i = 0; i < multihash.length && multihash[i] === 0; i++) {
-    str += '1'
-  }
-  for (let i = digits.length - 1; i >= 0; i--) {
-    str += ALPHABET[digits[i]]
-  }
-  return str
-}
-
-/**
- * Upload to Pinata IPFS (if credentials provided in .env)
- */
-async function uploadToPinata(buffer: Buffer, ext: string, fileName: string): Promise<string | null> {
+async function pinToPinata(buffer: Buffer, mimeType: string, fileName: string): Promise<string | null> {
   const jwt = process.env.PINATA_JWT
-  const apiKey = process.env.PINATA_API_KEY
-  const secretKey = process.env.PINATA_SECRET_API_KEY
-
-  if (!jwt && (!apiKey || !secretKey)) return null
+  if (!jwt) return null
 
   try {
-    const uint8 = new Uint8Array(buffer)
-    const blob = new Blob([uint8], { type: `image/${ext === 'jpg' ? 'jpeg' : ext}` })
-    const formData = new FormData()
-    formData.append('file', blob, fileName)
-
-    const headers: Record<string, string> = {}
-    if (jwt) {
-      headers['Authorization'] = `Bearer ${jwt}`
-    } else if (apiKey && secretKey) {
-      headers['pinata_api_key'] = apiKey
-      headers['pinata_secret_api_key'] = secretKey
-    }
+    const blob = new Blob([new Uint8Array(buffer)], { type: mimeType })
+    const form = new FormData()
+    form.append('file', blob, fileName)
+    form.append('pinataMetadata', JSON.stringify({ name: fileName }))
+    form.append('pinataOptions', JSON.stringify({ cidVersion: 1 }))
 
     const res = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
       method: 'POST',
-      headers,
-      body: formData,
+      headers: { Authorization: `Bearer ${jwt}` },
+      body: form,
     })
 
     if (res.ok) {
       const data = await res.json()
-      if (data.IpfsHash) {
-        return `ipfs://${data.IpfsHash}`
-      }
+      if (data.IpfsHash) return `ipfs://${data.IpfsHash}`
+    }
+    console.warn('[IPFS] Pinata error:', await res.text())
+  } catch (e) {
+    console.warn('[IPFS] Pinata exception:', e)
+  }
+  return null
+}
+
+/**
+ * Upload ke Lighthouse.storage (public, gratis tanpa auth)
+ */
+async function pinToLighthouse(buffer: Buffer, mimeType: string, fileName: string): Promise<string | null> {
+  try {
+    const blob = new Blob([new Uint8Array(buffer)], { type: mimeType })
+    const form = new FormData()
+    form.append('file', blob, fileName)
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 15000)
+
+    const res = await fetch('https://node.lighthouse.storage/api/v0/add', {
+      method: 'POST',
+      body: form,
+      signal: controller.signal,
+    })
+    clearTimeout(timer)
+
+    if (res.ok) {
+      const data = await res.json()
+      if (data.Hash) return `ipfs://${data.Hash}`
+    }
+    console.warn('[IPFS] Lighthouse error:', await res.text().catch(() => ''))
+  } catch (e) {
+    console.warn('[IPFS] Lighthouse exception:', e)
+  }
+  return null
+}
+
+/**
+ * Upload ke Web3.storage (public node, gratis)
+ */
+async function pinToWeb3Storage(buffer: Buffer, mimeType: string, fileName: string): Promise<string | null> {
+  try {
+    const blob = new Blob([new Uint8Array(buffer)], { type: mimeType })
+    const form = new FormData()
+    form.append('file', blob, fileName)
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 15000)
+
+    // Try ipfs.io public writable API
+    const res = await fetch('https://ipfs.io/api/v0/add?quieter=true&pin=true', {
+      method: 'POST',
+      body: form,
+      signal: controller.signal,
+    })
+    clearTimeout(timer)
+
+    if (res.ok) {
+      const text = await res.text()
+      const last = text.trim().split('\n').pop() || ''
+      const data = JSON.parse(last)
+      if (data.Hash) return `ipfs://${data.Hash}`
     }
   } catch (e) {
-    console.warn('[IPFS] Pinata upload error:', e)
+    console.warn('[IPFS] ipfs.io add exception:', e)
   }
   return null
 }
@@ -101,6 +103,7 @@ export async function POST(req: NextRequest) {
     const contentType = req.headers.get('content-type') || ''
     let buffer: Buffer
     let ext = 'png'
+    let mimeType = 'image/png'
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData()
@@ -108,69 +111,69 @@ export async function POST(req: NextRequest) {
       if (!file) {
         return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
       }
-      const arrayBuffer = await file.arrayBuffer()
-      buffer = Buffer.from(arrayBuffer)
-      if (file.type.includes('webp')) ext = 'webp'
-      else if (file.type.includes('jpeg') || file.type.includes('jpg')) ext = 'jpg'
-      else if (file.type.includes('svg')) ext = 'svg'
-      else if (file.type.includes('gif')) ext = 'gif'
+      buffer = Buffer.from(await file.arrayBuffer())
+      mimeType = file.type || 'image/png'
+      if (mimeType.includes('webp')) ext = 'webp'
+      else if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = 'jpg'
+      else if (mimeType.includes('svg')) ext = 'svg'
+      else if (mimeType.includes('gif')) ext = 'gif'
     } else {
       const body = await req.json()
       const dataUrl = body.image as string
-      if (!dataUrl || !dataUrl.includes('base64,')) {
+      if (!dataUrl?.includes('base64,')) {
         return NextResponse.json({ error: 'Invalid image data' }, { status: 400 })
       }
       const matches = dataUrl.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/)
-      if (!matches || matches.length !== 3) {
-        return NextResponse.json({ error: 'Invalid base64 string' }, { status: 400 })
+      if (!matches || matches.length < 3) {
+        return NextResponse.json({ error: 'Invalid base64' }, { status: 400 })
       }
       ext = matches[1] === 'jpeg' ? 'jpg' : matches[1]
+      mimeType = `image/${matches[1] === 'jpg' ? 'jpeg' : matches[1]}`
       buffer = Buffer.from(matches[2], 'base64')
     }
 
-    // 1. Calculate deterministic standard IPFS CIDv0 (Qm...)
-    const ipfsCid = calculateIpfsCidV0(buffer)
-    const ipfsUri = `ipfs://${ipfsCid}`
-    const ipfsGatewayUrl = `https://ipfs.io/ipfs/${ipfsCid}`
-
-    // 2. Save local copy in public/uploads/ using both hash and CID
+    // 1. Save local backup
     const hash = crypto.createHash('sha256').update(buffer).digest('hex').slice(0, 16)
     const fileName = `${hash}.${ext}`
     const uploadDir = path.join(process.cwd(), 'public', 'uploads')
     await mkdir(uploadDir, { recursive: true })
     await writeFile(path.join(uploadDir, fileName), buffer)
 
-    // Also write with CID name so IPFS fallback router can resolve locally if needed
-    try {
-      await writeFile(path.join(uploadDir, `${ipfsCid}.${ext}`), buffer)
-    } catch { /* ignore */ }
-
-    // 3. Pin to Pinata in background if credentials configured
-    uploadToPinata(buffer, ext, fileName).catch(() => {})
-
+    // Build full public URL (fallback)
     const rawHost = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'launchsparkle.fun'
     const isLocal = rawHost.includes('localhost') || rawHost.includes('127.0.0.1')
-    const proto = req.headers.get('x-forwarded-proto') || (isLocal ? 'http' : 'https')
-    const baseOrigin = isLocal ? `http://${rawHost}` : (rawHost.includes('launchsparkle.fun') ? 'https://launchsparkle.fun' : `${proto}://${rawHost}`)
-    const fullPublicUrl = `${baseOrigin}/uploads/${fileName}`
-    const relativeUrl = `/uploads/${fileName}`
+    const baseOrigin = isLocal
+      ? `http://${rawHost}`
+      : rawHost.includes('launchsparkle.fun')
+        ? 'https://launchsparkle.fun'
+        : `https://${rawHost}`
+    const publicUrl = `${baseOrigin}/uploads/${fileName}`
 
-    // Return the standard IPFS URI for Pons v2 contracts & DEX crawlers
+    // 2. Upload to IPFS: Pinata → Lighthouse → ipfs.io
+    let ipfsUri: string | null = null
+    ipfsUri = await pinToPinata(buffer, mimeType, fileName)
+    if (!ipfsUri) ipfsUri = await pinToLighthouse(buffer, mimeType, fileName)
+    if (!ipfsUri) ipfsUri = await pinToWeb3Storage(buffer, mimeType, fileName)
+
+    const cid = ipfsUri ? ipfsUri.replace('ipfs://', '') : null
+    const ipfsUrl = cid ? `https://ipfs.io/ipfs/${cid}` : null
+
+    // Return: prefer IPFS gateway URL on-chain, fall back to full public URL
+    const finalUrl = ipfsUrl || publicUrl
+
     return NextResponse.json({
       success: true,
-      url: ipfsUri, // Standard ipfs://Qm...
-      ipfsUri: ipfsUri,
-      ipfsUrl: ipfsGatewayUrl,
-      gatewayUrl: ipfsGatewayUrl,
-      publicUrl: fullPublicUrl,
-      localUrl: fullPublicUrl,
-      relativeUrl,
+      url: finalUrl,          // used as on-chain logo
+      publicUrl,              // full https URL (fallback)
+      ipfsUri,                // ipfs://... (null if failed)
+      ipfsUrl,                // https://ipfs.io/ipfs/...
+      relativeUrl: `/uploads/${fileName}`,
       fileName,
     })
   } catch (err: unknown) {
-    console.error('Upload handler error:', err)
+    console.error('[upload] error:', err)
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to upload image' },
+      { error: err instanceof Error ? err.message : 'Upload failed' },
       { status: 500 }
     )
   }

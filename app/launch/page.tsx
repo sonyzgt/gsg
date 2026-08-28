@@ -156,8 +156,9 @@ export default function LaunchPage() {
           })
           if (res.ok) {
             const data = await res.json()
-            // Use full public HTTPS URL — accessible by GMGN, DexScreener, Pons on-chain
-            const serverUrl = data.publicUrl || data.localUrl || ''
+            // Prefer IPFS gateway URL (works on GMGN, DexScreener, Pons)
+            // Fall back to full public HTTPS URL
+            const serverUrl = data.ipfsUrl || data.publicUrl || data.localUrl || ''
             if (serverUrl) {
               committedLogoRef.current = serverUrl
               setLogo(serverUrl)
