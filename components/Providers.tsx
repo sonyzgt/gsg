@@ -15,6 +15,8 @@ const wagmiConfig = createConfig({
   },
 })
 
+import { ThemeProvider } from '@/context/ThemeContext'
+
 export default function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient())
   const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID
@@ -45,7 +47,7 @@ export default function Providers({ children }: { children: ReactNode }) {
           accentColor: '#10b981',
         },
         embeddedWallets: {
-          showWalletUIs: false,
+          showWalletUIs: true,
           ethereum: {
             createOnLogin: 'users-without-wallets',
           },
@@ -57,21 +59,23 @@ export default function Providers({ children }: { children: ReactNode }) {
     >
       <QueryClientProvider client={queryClient}>
         <WagmiProvider config={wagmiConfig}>
-          {children}
-          <Toaster
-            position="top-center"
-            toastOptions={{
-              style: {
-                background: '#09110d',
-                color: '#f4f4f5',
-                border: '1px solid rgba(16, 185, 129, 0.25)',
-                borderRadius: '16px',
-                fontSize: '13px',
-                padding: '12px 18px',
-                boxShadow: '0 20px 40px rgba(0,0,0,0.8), 0 0 20px rgba(16, 185, 129, 0.2)',
-              },
-            }}
-          />
+          <ThemeProvider>
+            {children}
+            <Toaster
+              position="top-center"
+              toastOptions={{
+                style: {
+                  background: '#09110d',
+                  color: '#f4f4f5',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                  borderRadius: '16px',
+                  fontSize: '13px',
+                  padding: '12px 18px',
+                  boxShadow: '0 20px 40px rgba(0,0,0,0.8), 0 0 20px rgba(16, 185, 129, 0.2)',
+                },
+              }}
+            />
+          </ThemeProvider>
         </WagmiProvider>
       </QueryClientProvider>
     </PrivyProvider>

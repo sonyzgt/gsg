@@ -16,7 +16,7 @@ export const NATIVE_ROBINHOOD_ETH: Token = {
   symbol: 'ETH',
   name: 'Robinhood Ether',
   decimals: 18,
-  icon: '🏹',
+  icon: '/logo.svg',
   usdPrice: 2500.0,
   priceNative: 1.0,
 }
@@ -26,7 +26,7 @@ export const USDG_TOKEN: Token = {
   name: 'Global Dollar',
   decimals: 6,
   address: '0x5fc5360d0400a0fd4f2af552add042d716f1d168',
-  icon: '💵',
+  icon: '/logo.svg',
   usdPrice: 1.0,
   priceNative: 1 / 2500,
 }

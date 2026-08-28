@@ -1,13 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { isAddress, parseEther } from 'viem'
+import { isAddress, parseEther, getAddress, createWalletClient, custom } from 'viem'
 import { useWallet } from '@/hooks/useWallet'
-import { useSendTransaction } from '@privy-io/react-auth'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import toast from 'react-hot-toast'
 import { activeChain } from '@/lib/chains'
+import { useTheme } from '@/context/ThemeContext'
 
 interface SendModalProps {
   open: boolean
@@ -15,8 +15,8 @@ interface SendModalProps {
 }
 
 export default function SendModal({ open, onClose }: SendModalProps) {
-  const { balance, refetchBalance } = useWallet()
-  const { sendTransaction } = useSendTransaction()
+  const { balance, refetchBalance, embeddedWallet, address } = useWallet()
+  const { theme } = useTheme()
 
   const [to, setTo] = useState('')
   const [amount, setAmount] = useState('')
@@ -27,19 +27,33 @@ export default function SendModal({ open, onClose }: SendModalProps) {
   const hasEnoughBalance =
     balance && parseFloat(amount) <= parseFloat(balance.formatted)
 
-  const canSend = isValidAddress && isValidAmount && hasEnoughBalance && !sending
+  const canSend = isValidAddress && isValidAmount && hasEnoughBalance && !sending && !!address && !!embeddedWallet
 
   async function handleSend() {
-    if (!canSend) return
+    if (!canSend || !embeddedWallet || !address) return
     setSending(true)
+
     try {
-      await sendTransaction({
-        to:       to as `0x${string}`,
-        value:    parseEther(amount),
-        chainId:  activeChain.id,
-        gasLimit: 100000n,
+      await embeddedWallet.switchChain(activeChain.id)
+      const provider = await embeddedWallet.getEthereumProvider()
+      const walletClient = createWalletClient({
+        chain: activeChain,
+        transport: custom(provider),
       })
-      toast.success('ETH transaction successfully sent!')
+      const [account] = await walletClient.getAddresses()
+
+      const targetAddress = getAddress(to.trim())
+      const valueInWei = parseEther(amount.trim())
+
+      toast('Sending ETH transaction...')
+
+      const txHash = await walletClient.sendTransaction({
+        account,
+        to: targetAddress,
+        value: valueInWei,
+      })
+
+      toast.success('ETH successfully sent!')
       await refetchBalance()
       handleClose()
     } catch (err: unknown) {
@@ -48,9 +62,12 @@ export default function SendModal({ open, onClose }: SendModalProps) {
         msg.toLowerCase().includes('cancel') ||
         msg.toLowerCase().includes('reject') ||
         msg.toLowerCase().includes('denied') ||
-        msg.toLowerCase().includes('aborted')
+        msg.toLowerCase().includes('aborted') ||
+        msg.toLowerCase().includes('user rejected')
       ) {
         toast.error('Transaction canceled.')
+      } else if (msg.toLowerCase().includes('insufficient funds') || msg.toLowerCase().includes('exceeds')) {
+        toast.error('Insufficient ETH for amount + gas fee.')
       } else {
         toast.error(msg.slice(0, 100))
       }
@@ -67,7 +84,7 @@ export default function SendModal({ open, onClose }: SendModalProps) {
 
   function setMax() {
     if (balance) {
-      const maxEth = Math.max(0, parseFloat(balance.formatted) - 0.0005)
+      const maxEth = Math.max(0, parseFloat(balance.formatted) - 0.0001)
       setAmount(maxEth > 0 ? maxEth.toFixed(4) : '0')
     }
   }
@@ -76,14 +93,17 @@ export default function SendModal({ open, onClose }: SendModalProps) {
     <Modal open={open} onClose={handleClose} title="Send ETH — Robinhood Chain">
       <div className="flex flex-col gap-4">
         {/* Network indicator */}
-        <div className="flex items-center justify-between text-xs text-zinc-400 bg-[#09110d] px-3.5 py-2.5 rounded-xl border border-white/[0.08]">
+        <div className="flex items-center justify-between text-xs text-zinc-400 bg-white/[0.02] px-3.5 py-2.5 rounded-xl border border-white/[0.08]">
           <span className="flex items-center gap-1.5 text-zinc-300 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span
+              className="w-1.5 h-1.5 rounded-full animate-pulse"
+              style={{ backgroundColor: theme.color, boxShadow: `0 0 8px ${theme.color}` }}
+            />
             Robinhood Chain Mainnet
           </span>
           {balance && (
             <span className="font-mono text-zinc-400">
-              Balance: <strong className="text-emerald-400">{parseFloat(balance.formatted).toFixed(4)} ETH</strong>
+              Balance: <strong className="text-theme-light font-bold">{parseFloat(balance.formatted).toFixed(4)} ETH</strong>
             </span>
           )}
         </div>
@@ -98,7 +118,7 @@ export default function SendModal({ open, onClose }: SendModalProps) {
             placeholder="0x... (Robinhood Chain address)"
             value={to}
             onChange={(e) => setTo(e.target.value.trim())}
-            className="w-full bg-[#050b08] border border-white/[0.08] focus:border-emerald-500/50 rounded-xl px-3.5 py-2.5 text-xs font-mono text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all"
+            className="w-full bg-[#050b08] border border-white/[0.08] focus:border-theme rounded-xl px-3.5 py-2.5 text-xs font-mono text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-[var(--theme-color)] transition-all"
           />
           {to && !isValidAddress && (
             <p className="text-xs text-rose-400 mt-1">Invalid Ethereum / Robinhood address</p>
@@ -112,7 +132,7 @@ export default function SendModal({ open, onClose }: SendModalProps) {
             <button
               type="button"
               onClick={setMax}
-              className="text-xs text-emerald-400 hover:text-emerald-300 font-bold px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 font-mono"
+              className="text-xs text-theme-light font-bold px-2 py-0.5 rounded liquid-pill border-theme font-mono cursor-pointer"
             >
               MAX
             </button>
@@ -125,9 +145,9 @@ export default function SendModal({ open, onClose }: SendModalProps) {
               onChange={(e) => setAmount(e.target.value)}
               step="any"
               min="0"
-              className="w-full bg-[#050b08] border border-white/[0.08] focus:border-emerald-500/50 rounded-xl px-3.5 py-2.5 text-sm font-bold text-white placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 pr-16 transition-all font-mono"
+              className="w-full bg-[#050b08] border border-white/[0.08] focus:border-theme rounded-xl px-3.5 py-2.5 text-sm font-bold text-white placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-[var(--theme-color)] pr-16 transition-all font-mono"
             />
-            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-400 font-mono">
+            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-theme-light font-mono">
               ETH
             </span>
           </div>

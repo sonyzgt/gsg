@@ -56,7 +56,21 @@ export async function POST(req: NextRequest) {
       }
     } catch { /* ignore */ }
 
-    // 2. Also include explicitly requested tokens (e.g. from local storage or newly swapped)
+    // 2. Auto-discover platform launched tokens from registry
+    try {
+      const { readFile } = await import('fs/promises')
+      const path = await import('path')
+      const regFile = path.join(process.cwd(), 'data', 'launched_tokens.json')
+      const rawReg = await readFile(regFile, 'utf-8')
+      const regTokens = JSON.parse(rawReg)
+      if (Array.isArray(regTokens)) {
+        for (const t of regTokens) {
+          if (isAddress(t)) discoveredSet.add(getAddress(t))
+        }
+      }
+    } catch { /* ignore */ }
+
+    // 3. Also include explicitly requested tokens (e.g. from local storage or newly swapped)
     if (Array.isArray(tokenAddresses)) {
       for (const t of tokenAddresses) {
         if (t && isAddress(t)) {
@@ -70,7 +84,7 @@ export async function POST(req: NextRequest) {
 
     for (const tokenAddr of addressesToFetch) {
       try {
-        // 3. Baca data saldo on-chain langsung via RPC untuk akurasi mutlak
+        // 4. Baca data saldo on-chain langsung via RPC untuk akurasi mutlak
         const [rawBalance, decimals, onChainName, onChainSymbol] = await Promise.all([
           client.readContract({
             address: tokenAddr,
@@ -99,8 +113,8 @@ export async function POST(req: NextRequest) {
         const formatted = formatUnits(rawBalance, dec)
         const balanceNum = parseFloat(formatted) || 0
 
-        // HANYA simpan token jika saldonya >= 1
-        if (balanceNum < 1) {
+        // HANYA simpan token jika saldonya > 0
+        if (rawBalance === 0n || balanceNum <= 0) {
           continue
         }
 
@@ -186,7 +200,7 @@ export async function POST(req: NextRequest) {
           balanceNumber: balanceNum,
           usdPrice,
           valueUsd,
-          icon: '🪙',
+          icon: '/logo.svg',
         })
       } catch (e: unknown) {
         console.error(`Error fetching token ${tokenAddr}:`, e)

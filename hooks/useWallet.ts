@@ -18,29 +18,32 @@ export function useWallet() {
   const [balanceEth, setBalanceEth] = useState<string | null>(null)
   const [balanceLoading, setBalanceLoading] = useState(false)
 
-  // 1. Cari embedded connected wallet
-  const embeddedWallet =
-    getEmbeddedConnectedWallet(wallets) ??
-    wallets.find((w) => w.walletClientType === 'privy') ??
-    wallets[0]
-
-  // 2. Ambil address dari berbagai sumber Privy
+  // 1. Ambil target address utama dari user profile
   const userWalletAccount = user?.linkedAccounts?.find(
     (a) => a.type === 'wallet' && (a as { walletClientType?: string }).walletClientType === 'privy'
   ) as { address?: string } | undefined
 
+  const primaryUserAddress = user?.wallet?.address ?? userWalletAccount?.address
+
+  // 2. Cari embedded connected wallet yang sesuai dengan primary address
+  const embeddedWallet =
+    (primaryUserAddress ? wallets.find((w) => w.address.toLowerCase() === primaryUserAddress.toLowerCase()) : null) ??
+    getEmbeddedConnectedWallet(wallets) ??
+    wallets.find((w) => w.walletClientType === 'privy') ??
+    wallets[0]
+
   const fallbackAddress =
-    user?.wallet?.address ??
-    userWalletAccount?.address ??
+    primaryUserAddress ??
     (user?.linkedAccounts?.find((a) => a.type === 'wallet') as { address?: string } | undefined)?.address
 
   const address = (embeddedWallet?.address ?? fallbackAddress) as `0x${string}` | undefined
 
   const createWalletAttempted = useRef(false)
 
-  // 3. Jika user login tapi belum punya wallet, otomatis buat wallet (hanya dipanggil 1x)
+  // 3. Jika user login tapi belum punya wallet sama sekali, otomatis buat wallet (hanya dipanggil 1x)
   useEffect(() => {
-    if (ready && authenticated && !address && !createWalletAttempted.current) {
+    const hasAnyWallet = wallets.length > 0 || !!user?.linkedAccounts?.some(a => a.type === 'wallet')
+    if (ready && authenticated && !address && !hasAnyWallet && !createWalletAttempted.current) {
       createWalletAttempted.current = true
       setCreatingWallet(true)
       createWallet()
@@ -51,7 +54,7 @@ export function useWallet() {
           setCreatingWallet(false)
         })
     }
-  }, [ready, authenticated, address, createWallet])
+  }, [ready, authenticated, address, wallets, user, createWallet])
 
   // 4. Fetch balance dari server-side API (hindari RPC rate-limit & CORS)
   const refetchBalance = useCallback(async () => {

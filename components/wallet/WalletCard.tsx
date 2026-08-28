@@ -8,11 +8,14 @@ import toast from 'react-hot-toast'
 import { createPublicClient, http, erc20Abi, formatEther, encodeFunctionData, getAddress } from 'viem'
 import { useSendTransaction, useExportWallet } from '@privy-io/react-auth'
 import Image from 'next/image'
+import { useTheme } from '@/context/ThemeContext'
+import SparkleIcon from '@/components/ui/SparkleIcon'
 
 interface WalletCardProps {
   onSend: () => void
   onReceive: () => void
   onSwap: () => void
+  onClaimRoyalties?: () => void
 }
 
 const WETH_ADDR = '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73' as `0x${string}`
@@ -27,8 +30,9 @@ const WETH_ABI = [
   },
 ] as const
 
-export default function WalletCard({ onSend, onReceive, onSwap }: WalletCardProps) {
+export default function WalletCard({ onSend, onReceive, onSwap, onClaimRoyalties }: WalletCardProps) {
   const { address, balance, creatingWallet, createWallet, refetchBalance, embeddedWallet } = useWallet()
+  const { theme } = useTheme()
   const { sendTransaction } = useSendTransaction()
   const { exportWallet } = useExportWallet()
   const [copying, setCopying] = useState(false)
@@ -67,25 +71,32 @@ export default function WalletCard({ onSend, onReceive, onSwap }: WalletCardProp
     setUnwrapping(true)
     try {
       await embeddedWallet.switchChain(activeChain.id)
+      const provider = await embeddedWallet.getEthereumProvider()
+      const { createWalletClient, custom } = await import('viem')
+      const walletClient = createWalletClient({
+        chain: activeChain,
+        transport: custom(provider),
+      })
+      const [account] = await walletClient.getAddresses()
+
       const data = encodeFunctionData({
         abi: WETH_ABI,
         functionName: 'withdraw',
         args: [wethBalanceRaw],
       })
-      await sendTransaction({
-        to:       WETH_ADDR,
+      await walletClient.sendTransaction({
+        account,
+        to: WETH_ADDR,
         data,
-        chainId:  activeChain.id,
-        gasLimit: 300000n,
       })
-      toast.success('✅ Successfully unwrapped WETH to Native ETH!')
+      toast.success('Successfully unwrapped WETH to Native ETH!')
       await Promise.all([refetchBalance(), fetchWethBalance()])
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed'
       if (msg.includes('cancel') || msg.includes('reject')) {
         toast.error('Unwrap canceled.')
       } else {
-        toast.error(`❌ ${msg.slice(0, 100)}`)
+        toast.error(`${msg.slice(0, 100)}`)
       }
     } finally {
       setUnwrapping(false)
@@ -103,34 +114,61 @@ export default function WalletCard({ onSend, onReceive, onSwap }: WalletCardProp
   const explorerUrl = `${activeChain.blockExplorers.default.url}/address/${address}`
 
   return (
-    <div className="rounded-3xl bg-[#07100c]/75 backdrop-blur-xl border border-emerald-500/15 shadow-2xl p-4 sm:p-7 w-full relative overflow-hidden">
-      {/* Subtle background emerald glow */}
-      <div className="absolute -top-24 -right-24 w-60 h-60 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="rounded-3xl liquid-glass shadow-2xl p-4 sm:p-7 w-full relative overflow-hidden">
+      {/* Dynamic theme top specular accent line */}
+      <div
+        className="absolute top-0 left-0 right-0 h-[2px] transition-all duration-500"
+        style={{
+          background: `linear-gradient(to right, transparent, ${theme.color}, transparent)`,
+          boxShadow: `0 0 10px ${theme.color}`,
+        }}
+      />
 
       {/* Header status */}
       <div className="flex items-center justify-between mb-4 sm:mb-5">
         <div className="flex items-center gap-2">
-          <span className="flex items-center gap-2 text-xs font-semibold text-zinc-300 bg-[#09110d] border border-white/[0.08] rounded-full px-2.5 sm:px-3 py-1 font-mono">
-            <div className="w-3.5 h-3.5 rounded-full overflow-hidden border border-emerald-500/30 flex items-center justify-center bg-black relative flex-shrink-0">
-              <Image src="/logo.svg" alt="Robinhood" width={14} height={14} className="object-cover" />
-            </div>
+          <span className="flex items-center gap-2 text-xs font-bold text-zinc-200 liquid-pill px-3 py-1 rounded-full font-mono">
+            <SparkleIcon size={16} className="flex-shrink-0" />
             Robinhood Chain
           </span>
         </div>
-        <span className="flex items-center gap-1.5 text-xs text-zinc-400 bg-[#09110d] border border-white/[0.08] rounded-full px-2.5 sm:px-3 py-1 font-mono">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-          Live Sync
-        </span>
+        <div className="flex items-center gap-2">
+          {onClaimRoyalties && (
+            <button
+              onClick={onClaimRoyalties}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full liquid-pill text-xs font-bold text-theme-light border-theme hover:brightness-110 transition-all font-mono cursor-pointer"
+            >
+              <svg className="w-3.5 h-3.5" style={{ color: theme.color }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Royalties</span>
+            </button>
+          )}
+          <span className="flex items-center gap-1.5 text-xs text-theme-light liquid-pill px-3 py-1 rounded-full font-mono font-bold">
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ backgroundColor: theme.color, boxShadow: `0 0 8px ${theme.color}` }}
+            />
+            Live Sync
+          </span>
+        </div>
       </div>
 
       {/* WETH Auto-Unwrap Banner if user holds WETH */}
       {wethBalanceRaw > 0n && (
-        <div className="mb-4 sm:mb-5 bg-[#09110d] border border-emerald-500/30 rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+        <div className="mb-4 sm:mb-5 bg-[#09110d] border border-white/10 rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
           <div className="flex items-center gap-2.5">
-            <span className="text-xl text-emerald-400">⚡</span>
+            <div
+              className="w-8 h-8 rounded-xl liquid-pill flex items-center justify-center flex-shrink-0"
+              style={{ color: theme.color }}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
             <div>
-              <p className="text-xs font-semibold text-zinc-200">
-                Detected <span className="text-emerald-400 font-mono font-bold">{wethBalanceFormatted} WETH</span>
+              <p className="text-xs font-bold text-zinc-200">
+                Detected <span className="font-mono font-bold text-theme-light">{wethBalanceFormatted} WETH</span>
               </p>
               <p className="text-[11px] text-zinc-400">
                 Unwrap to combine directly into your Native ETH balance
@@ -139,10 +177,10 @@ export default function WalletCard({ onSend, onReceive, onSwap }: WalletCardProp
           </div>
           <Button
             size="sm"
-            variant="accent"
+            variant="primary"
             loading={unwrapping}
             onClick={handleUnwrapWeth}
-            className="text-xs font-semibold py-2 px-3.5 w-full sm:w-auto flex-shrink-0"
+            className="text-xs font-bold py-2 px-3.5 w-full sm:w-auto flex-shrink-0"
           >
             Unwrap to ETH
           </Button>
@@ -150,32 +188,32 @@ export default function WalletCard({ onSend, onReceive, onSwap }: WalletCardProp
       )}
 
       {/* Native ETH Balance */}
-      <div className="mb-4 sm:mb-6 bg-[#09110d]/80 p-4 sm:p-6 rounded-2xl border border-white/[0.07] relative overflow-hidden backdrop-blur-md">
+      <div className="mb-4 sm:mb-6 liquid-pill p-4 sm:p-6 rounded-2xl relative overflow-hidden">
         <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-          <span className="text-[11px] sm:text-xs text-zinc-400 uppercase tracking-wider font-semibold">
+          <span className="text-[11px] sm:text-xs text-zinc-400 uppercase tracking-wider font-bold">
             Native ETH Balance
           </span>
-          <span className="text-[10px] sm:text-[11px] text-emerald-400 font-mono uppercase tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+          <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-wider liquid-pill-active px-2.5 py-0.5 rounded-lg font-bold">
             Layer-2 Orbit
           </span>
         </div>
         <div className="flex items-baseline gap-2 mt-1 flex-wrap">
-          <span className="text-3xl sm:text-5xl font-extrabold text-zinc-100 tracking-tight font-mono break-all">
+          <span className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight font-mono break-all drop-shadow-md">
             {balance ? balance.formatted : '0.000000'}
           </span>
-          <span className="text-base sm:text-lg text-emerald-400 font-bold font-mono">ETH</span>
+          <span className="text-base sm:text-lg font-bold font-mono text-glow-theme">ETH</span>
         </div>
       </div>
 
       {/* Wallet Address */}
       <div className="mb-5 sm:mb-6">
-        <p className="text-[11px] sm:text-xs text-zinc-400 uppercase tracking-wider font-semibold mb-1.5 sm:mb-2">
+        <p className="text-[11px] sm:text-xs text-zinc-400 uppercase tracking-wider font-bold mb-1.5 sm:mb-2">
           Account Address
         </p>
         {address ? (
           <div className="flex flex-col gap-2">
             <code
-              className="text-[11px] sm:text-xs font-mono text-zinc-300 bg-[#09110d] border border-white/[0.08] rounded-xl px-3.5 py-2.5 w-full overflow-hidden text-ellipsis select-all"
+              className="text-[11px] sm:text-xs font-mono text-zinc-200 liquid-pill px-3.5 py-2.5 w-full overflow-hidden text-ellipsis select-all rounded-xl font-bold"
               title={address}
             >
               {address}
@@ -184,15 +222,15 @@ export default function WalletCard({ onSend, onReceive, onSwap }: WalletCardProp
               <button
                 onClick={copyAddress}
                 disabled={copying}
-                className="py-2 px-2 rounded-xl bg-[#09110d] hover:bg-zinc-800/80 border border-white/[0.08] text-zinc-300 hover:text-white transition-all flex items-center justify-center gap-1 text-[11px] font-medium cursor-pointer"
+                className="py-2 px-2 rounded-xl liquid-btn-secondary text-zinc-300 hover:text-white transition-all flex items-center justify-center gap-1.5 text-[11px] font-bold cursor-pointer"
                 title="Copy Full Address"
               >
                 {copying ? (
                   <>
-                    <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-3.5 h-3.5" style={{ color: theme.color }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span className="text-emerald-400 font-mono">Copied</span>
+                    <span className="font-mono text-theme-light">Copied</span>
                   </>
                 ) : (
                   <>
@@ -207,40 +245,35 @@ export default function WalletCard({ onSend, onReceive, onSwap }: WalletCardProp
                 href={explorerUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="py-2 px-2 rounded-xl bg-[#09110d] hover:bg-zinc-800/80 border border-white/[0.08] text-zinc-300 hover:text-white transition-all flex items-center justify-center gap-1 text-[11px] font-medium"
-                title="View on Explorer"
+                className="py-2 px-2 rounded-xl liquid-btn-secondary text-zinc-300 hover:text-white transition-all flex items-center justify-center gap-1.5 text-[11px] font-bold cursor-pointer"
               >
-                <svg className="w-3.5 h-3.5 fill-none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
                 <span>Explorer</span>
               </a>
               <button
                 onClick={() => exportWallet()}
-                className="py-2 px-2 rounded-xl bg-[#09110d] hover:bg-zinc-800/80 border border-white/[0.08] text-zinc-300 hover:text-amber-300 transition-all flex items-center justify-center gap-1 text-[11px] font-medium cursor-pointer"
-                title="Export Private Key (Self-Custody)"
+                className="py-2 px-2 rounded-xl liquid-btn-secondary text-zinc-300 hover:text-white transition-all flex items-center justify-center gap-1.5 text-[11px] font-bold cursor-pointer"
+                title="Export Private Key"
               >
                 <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                 </svg>
-                <span>Export</span>
+                <span>Export Key</span>
               </button>
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-between bg-zinc-950 border border-white/[0.08] rounded-xl p-3.5">
-            <span className="text-xs text-zinc-400">
-              {creatingWallet ? 'Generating on-chain wallet...' : 'Wallet not yet created'}
-            </span>
-            <Button
-              size="sm"
-              loading={creatingWallet}
-              onClick={() => createWallet()}
-              variant="primary"
-            >
-              {creatingWallet ? 'Creating...' : 'Create Wallet'}
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            loading={creatingWallet}
+            onClick={() => createWallet()}
+            variant="primary"
+            className="w-full font-bold"
+          >
+            {creatingWallet ? 'Creating...' : 'Create Embedded Wallet'}
+          </Button>
         )}
       </div>
 
@@ -283,3 +316,4 @@ export default function WalletCard({ onSend, onReceive, onSwap }: WalletCardProp
     </div>
   )
 }
+

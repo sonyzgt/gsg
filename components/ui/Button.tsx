@@ -19,25 +19,25 @@ export default function Button({
   ...props
 }: ButtonProps) {
   const base =
-    'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:ring-offset-1 focus:ring-offset-black'
+    'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-white/20 cursor-pointer select-none'
 
   const variants = {
     primary:
-      'bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-400 hover:via-emerald-500 hover:to-teal-500 text-white font-semibold shadow-lg shadow-emerald-950/40 border border-emerald-400/30 active:scale-[0.98]',
+      'liquid-btn-primary text-white font-bold',
     secondary:
-      'bg-zinc-900/80 hover:bg-zinc-800/90 text-zinc-200 border border-white/[0.08] hover:border-emerald-500/30 backdrop-blur-md active:scale-[0.98]',
+      'liquid-btn-secondary text-zinc-100 font-semibold',
     ghost:
-      'bg-transparent hover:bg-emerald-950/30 text-zinc-400 hover:text-emerald-300',
+      'bg-transparent hover:bg-white/[0.06] text-zinc-400 hover:text-white transition-colors',
     danger:
-      'bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-500/30',
+      'liquid-btn-danger text-rose-100 font-semibold',
     accent:
-      'bg-zinc-950/80 hover:bg-zinc-900/90 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/50 backdrop-blur-md',
+      'liquid-pill-active text-white font-bold',
   }
 
   const sizes = {
     sm: 'px-3 py-1.5 text-xs',
-    md: 'px-4 py-2.5 text-sm',
-    lg: 'px-6 py-3.5 text-base',
+    md: 'px-4 py-2 text-sm',
+    lg: 'px-6 py-3 text-base',
   }
 
   return (

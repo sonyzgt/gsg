@@ -117,9 +117,9 @@ export function useTokens() {
         }
         const uniqueHoldings: TokenHolding[] = Array.from(uniqueHoldingsMap.values())
 
-        // Sembunyikan token dengan saldo < 1 (hanya tampilkan balance >= 1)
+        // Tampilkan semua token dengan saldo > 0
         const visibleHoldings = uniqueHoldings
-          .filter((h: TokenHolding) => h.balanceNumber >= 1)
+          .filter((h: TokenHolding) => h.balanceNumber > 0)
           .sort((a: TokenHolding, b: TokenHolding) => (b.valueUsd || 0) - (a.valueUsd || 0))
 
         setHoldings(visibleHoldings)

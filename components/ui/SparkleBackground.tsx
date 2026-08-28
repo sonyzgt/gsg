@@ -2,23 +2,36 @@
 
 import { useEffect, useRef } from 'react'
 
-interface Particle {
-  x: number
-  y: number
-  size: number
-  alpha: number
-  maxAlpha: number
-  alphaSpeed: number
-  vx: number
-  vy: number
-  type: 'sparkle' | 'dot' | 'star'
-  rotation: number
-  rotationSpeed: number
-  color: string
+interface HexCell {
+  cx: number
+  cy: number
+  radius: number
+  currentAlpha: number
+  targetAlpha: number
+  pulseSpeed: number
+  isAmbientPulse: boolean
 }
 
 export default function SparkleBackground() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const mouseRef = useRef<{ x: number; y: number }>({ x: -2000, y: -2000 })
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      mouseRef.current = { x: e.clientX, y: e.clientY }
+    }
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        mouseRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      }
+    }
+    window.addEventListener('mousemove', handleMouseMove, { passive: true })
+    window.addEventListener('touchmove', handleTouchMove, { passive: true })
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('touchmove', handleTouchMove)
+    }
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -30,164 +43,143 @@ export default function SparkleBackground() {
     let width = (canvas.width = window.innerWidth)
     let height = (canvas.height = window.innerHeight)
 
-    const colors = [
-      'rgba(255, 255, 255,',     // Crisp white sparkle
-      'rgba(209, 250, 229,',     // Mint sparkle
-      'rgba(167, 243, 208,',     // Soft emerald sparkle
-      'rgba(110, 231, 183,',     // Radiant jade sparkle
-      'rgba(240, 253, 250,',     // Frosted ice-teal
-    ]
+    // Narrowed non-null reference used by all nested functions
+    const context = ctx as CanvasRenderingContext2D
 
-    const particleCount = Math.min(65, Math.floor((width * height) / 22000))
-    const particles: Particle[] = []
+    const R = 32
+    const horizDist = Math.sqrt(3) * R
+    const vertDist = 1.5 * R
 
-    function createParticle(): Particle {
-      const isSparkle = Math.random() > 0.4
-      return {
-        x: Math.random() * width,
-        y: Math.random() * height,
-        size: isSparkle ? Math.random() * 2.5 + 1.2 : Math.random() * 1.5 + 0.5,
-        alpha: Math.random() * 0.8 + 0.1,
-        maxAlpha: Math.random() * 0.7 + 0.3,
-        alphaSpeed: (Math.random() * 0.015 + 0.005) * (Math.random() > 0.5 ? 1 : -1),
-        vx: (Math.random() - 0.5) * 0.25,
-        vy: -Math.random() * 0.35 - 0.05, // Gentle upward float
-        type: isSparkle ? (Math.random() > 0.5 ? 'sparkle' : 'star') : 'dot',
-        rotation: Math.random() * Math.PI * 2,
-        rotationSpeed: (Math.random() - 0.5) * 0.02,
-        color: colors[Math.floor(Math.random() * colors.length)],
+    let cells: HexCell[] = []
+
+    function initCells() {
+      cells = []
+      const cols = Math.ceil(width / horizDist) + 2
+      const rows = Math.ceil(height / vertDist) + 2
+      for (let r = -1; r < rows; r++) {
+        for (let c = -1; c < cols; c++) {
+          const xOffset = r % 2 !== 0 ? horizDist / 2 : 0
+          const cx = c * horizDist + xOffset
+          const cy = r * vertDist
+          cells.push({
+            cx, cy,
+            radius: R - 1.5,
+            currentAlpha: 0.04,
+            targetAlpha: 0.04,
+            pulseSpeed: Math.random() * 0.02 + 0.01,
+            isAmbientPulse: false,
+          })
+        }
       }
     }
 
-    for (let i = 0; i < particleCount; i++) {
-      particles.push(createParticle())
-    }
+    initCells()
 
     const handleResize = () => {
+      if (!canvas) return
       width = canvas.width = window.innerWidth
       height = canvas.height = window.innerHeight
+      initCells()
     }
-
     window.addEventListener('resize', handleResize)
 
-    function drawSparkleStar(
-      ctx: CanvasRenderingContext2D,
-      cx: number,
-      cy: number,
-      spikes: number,
-      outerRadius: number,
-      innerRadius: number,
-      color: string,
-      alpha: number,
-      rotation: number
-    ) {
-      ctx.save()
-      ctx.translate(cx, cy)
-      ctx.rotate(rotation)
-      ctx.beginPath()
-
-      let rot = (Math.PI / 2) * 3
-      let x = 0
-      let y = 0
-      const step = Math.PI / spikes
-
-      ctx.moveTo(0, -outerRadius)
-      for (let i = 0; i < spikes; i++) {
-        x = Math.cos(rot) * outerRadius
-        y = Math.sin(rot) * outerRadius
-        ctx.lineTo(x, y)
-        rot += step
-
-        x = Math.cos(rot) * innerRadius
-        y = Math.sin(rot) * innerRadius
-        ctx.lineTo(x, y)
-        rot += step
+    function drawHexagon(cx: number, cy: number, radius: number) {
+      context.beginPath()
+      for (let i = 0; i < 6; i++) {
+        const angle = Math.PI / 6 + (i * Math.PI) / 3
+        const x = cx + radius * Math.cos(angle)
+        const y = cy + radius * Math.sin(angle)
+        if (i === 0) context.moveTo(x, y)
+        else context.lineTo(x, y)
       }
-      ctx.lineTo(0, -outerRadius)
-      ctx.closePath()
-
-      // Star gradient aura
-      ctx.fillStyle = `${color}${alpha})`
-      ctx.shadowBlur = 12
-      ctx.shadowColor = 'rgba(16, 185, 129, 0.8)'
-      ctx.fill()
-      ctx.restore()
+      context.closePath()
     }
 
-    const render = () => {
-      ctx.clearRect(0, 0, width, height)
+    // Parse hex color string to r,g,b integers
+    function parseHex(hex: string): [number, number, number] {
+      const h = hex.replace('#', '')
+      if (h.length !== 6) return [16, 185, 129]
+      return [
+        parseInt(h.substring(0, 2), 16),
+        parseInt(h.substring(2, 4), 16),
+        parseInt(h.substring(4, 6), 16),
+      ]
+    }
 
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i]
+    let ambientTimer = 0
+    const hoverRadius = 180
 
-        // Animate alpha (twinkle)
-        p.alpha += p.alphaSpeed
-        if (p.alpha > p.maxAlpha) {
-          p.alpha = p.maxAlpha
-          p.alphaSpeed = -Math.abs(p.alphaSpeed)
-        } else if (p.alpha < 0.05) {
-          p.alpha = 0.05
-          p.alphaSpeed = Math.abs(p.alphaSpeed)
+    const render = (time: number) => {
+      context.clearRect(0, 0, width, height)
+
+      // Read CSS variable EVERY frame — guaranteed to reflect current theme instantly
+      const cssColor = getComputedStyle(document.documentElement)
+        .getPropertyValue('--theme-color').trim() || '#10b981'
+      const [r, g, b] = parseHex(cssColor)
+
+      const mx = mouseRef.current.x
+      const my = mouseRef.current.y
+
+      // Ambient random pulse
+      if (time - ambientTimer > 500) {
+        ambientTimer = time
+        const idx = Math.floor(Math.random() * cells.length)
+        if (cells[idx]) cells[idx].currentAlpha = Math.random() * 0.45 + 0.2
+      }
+
+      for (let i = 0; i < cells.length; i++) {
+        const cell = cells[i]
+
+        // Cursor proximity
+        const dx = cell.cx - mx
+        const dy = cell.cy - my
+        const dist = Math.sqrt(dx * dx + dy * dy)
+
+        if (dist < hoverRadius) {
+          const factor = 1 - dist / hoverRadius
+          const intensity = Math.pow(factor, 1.5) * 0.92
+          cell.currentAlpha = Math.max(cell.currentAlpha, intensity)
         }
 
-        // Animate position
-        p.x += p.vx
-        p.y += p.vy
-        p.rotation += p.rotationSpeed
+        // Smooth fade back to baseline
+        cell.currentAlpha += (0.04 - cell.currentAlpha) * 0.05
+        const alpha = Math.min(1, Math.max(0.03, cell.currentAlpha))
 
-        // Wrap around screen
-        if (p.y < -20) {
-          p.y = height + 20
-          p.x = Math.random() * width
+        // Fill (active cells only)
+        if (alpha > 0.08) {
+          context.save()
+          drawHexagon(cell.cx, cell.cy, cell.radius)
+          context.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.2})`
+          if (alpha > 0.35) {
+            context.shadowBlur = 18
+            context.shadowColor = cssColor
+          }
+          context.fill()
+          context.restore()
         }
-        if (p.x < -20) p.x = width + 20
-        if (p.x > width + 20) p.x = -20
 
-        // Render particle
-        if (p.type === 'sparkle') {
-          drawSparkleStar(ctx, p.x, p.y, 4, p.size * 3.2, p.size * 0.7, p.color, p.alpha, p.rotation)
-        } else if (p.type === 'star') {
-          // Cross flare sparkle
-          ctx.save()
-          ctx.translate(p.x, p.y)
-          ctx.rotate(p.rotation)
-          ctx.strokeStyle = `${p.color}${p.alpha})`
-          ctx.lineWidth = 0.75
-          ctx.shadowBlur = 8
-          ctx.shadowColor = 'rgba(52, 211, 153, 0.8)'
-
-          const len = p.size * 3.5
-          ctx.beginPath()
-          ctx.moveTo(-len, 0)
-          ctx.lineTo(len, 0)
-          ctx.moveTo(0, -len)
-          ctx.lineTo(0, len)
-          ctx.stroke()
-
-          // Center bright spot
-          ctx.beginPath()
-          ctx.arc(0, 0, p.size * 0.8, 0, Math.PI * 2)
-          ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1, p.alpha * 1.5)})`
-          ctx.fill()
-
-          ctx.restore()
+        // Border
+        context.save()
+        drawHexagon(cell.cx, cell.cy, cell.radius)
+        if (alpha > 0.12) {
+          context.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.min(1, alpha * 1.1)})`
+          context.lineWidth = alpha > 0.4 ? 1.8 : 1.2
+          if (alpha > 0.3) {
+            context.shadowBlur = 12
+            context.shadowColor = cssColor
+          }
         } else {
-          // Soft glowing dot
-          ctx.save()
-          ctx.beginPath()
-          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
-          ctx.fillStyle = `${p.color}${p.alpha})`
-          ctx.shadowBlur = 10
-          ctx.shadowColor = 'rgba(16, 185, 129, 0.6)'
-          ctx.fill()
-          ctx.restore()
+          context.strokeStyle = 'rgba(255, 255, 255, 0.055)'
+          context.lineWidth = 0.8
         }
+        context.stroke()
+        context.restore()
       }
 
       animationFrameId = requestAnimationFrame(render)
     }
 
-    render()
+    animationFrameId = requestAnimationFrame(render)
 
     return () => {
       window.removeEventListener('resize', handleResize)
@@ -195,59 +187,27 @@ export default function SparkleBackground() {
     }
   }, [])
 
+  // Read theme from CSS variable for the ambient orbs in JSX
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none">
-      {/* ── 1. Base Dark Emerald Slate Layer ────────────────────────────── */}
-      <div className="absolute inset-0 bg-[#030705]" />
+    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none bg-[#000000]">
+      {/* Pure Black Base */}
+      <div className="absolute inset-0 bg-[#000000]" />
 
-      {/* ── 2. Real Cosmic Emerald Eye Background Artwork ───────────────── */}
+      {/* Ambient Glow Orbs — use CSS vars so they always follow theme */}
       <div
-        className="absolute inset-0 opacity-40 bg-center bg-cover bg-no-repeat pointer-events-none scale-105"
+        className="absolute -top-40 left-1/2 -translate-x-1/2 w-[850px] h-[550px] opacity-35 blur-[140px] pointer-events-none transition-all duration-700"
         style={{
-          backgroundImage: 'url(/eye-bg.png)',
-          filter: 'contrast(115%) saturate(120%)',
+          background: 'radial-gradient(circle, var(--theme-glow, rgba(16,185,129,0.35)) 0%, transparent 70%)',
+        }}
+      />
+      <div
+        className="absolute -bottom-48 left-1/3 w-[700px] h-[550px] opacity-20 blur-[140px] pointer-events-none transition-all duration-700"
+        style={{
+          background: 'radial-gradient(circle, var(--theme-glow, rgba(16,185,129,0.35)) 0%, transparent 75%)',
         }}
       />
 
-      {/* ── 3. Atmospheric Radiant Emerald & Jade Glows ─────────────────── */}
-      {/* Center radiant emerald bloom around the eye */}
-      <div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[850px] h-[850px] opacity-45 blur-3xl pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(circle, rgba(16, 185, 129, 0.45) 0%, rgba(5, 150, 105, 0.25) 45%, transparent 75%)',
-        }}
-      />
-
-      {/* Bottom atmospheric teal/emerald horizon */}
-      <div
-        className="absolute -bottom-32 -left-20 -right-20 h-[650px] opacity-75 blur-3xl pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(ellipse 90% 70% at 50% 100%, #059669 0%, #064e3b 40%, #022c22 75%, transparent 100%)',
-        }}
-      />
-
-      {/* Vignette overlay for rich contrast & Apple glass focus */}
-      <div
-        className="absolute inset-0 opacity-75 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(ellipse 95% 85% at 50% 45%, transparent 35%, rgba(2, 6, 4, 0.92) 100%)',
-        }}
-      />
-
-      {/* Subtle modern geometric fine grid lines */}
-      <div
-        className="absolute inset-0 opacity-[0.035] pointer-events-none"
-        style={{
-          backgroundImage:
-            'linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px)',
-          backgroundSize: '48px 48px',
-        }}
-      />
-
-      {/* ── 4. Sparkling Particle Canvas Layer ───────────────────────────── */}
+      {/* Interactive Honeycomb Canvas */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full pointer-events-none"
@@ -255,3 +215,4 @@ export default function SparkleBackground() {
     </div>
   )
 }
+

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
+import SparkleIcon from '@/components/ui/SparkleIcon'
 import {
   parseEther,
   parseUnits,
@@ -22,10 +23,10 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import toast from 'react-hot-toast'
 import { usePrivy, useLoginWithOAuth } from '@privy-io/react-auth'
-import { useTelegram } from '@/hooks/useTelegram'
 import { trackTokenAddress } from '@/hooks/useTokens'
 import type { TokenPrice } from '@/app/api/token-price/route'
 import { PONS_CURVE_ABI } from '@/lib/pons-v2'
+import { useTheme } from '@/context/ThemeContext'
 
 interface SwapModalProps {
   open: boolean
@@ -116,18 +117,16 @@ function fmt(n: number, decimals = 6): string {
 export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) {
   const { user, authenticated } = usePrivy()
   const { balance, address, embeddedWallet, refetchBalance } = useWallet()
-  const { notifyManualSwap } = useTelegram()
+  const { theme } = useTheme()
   const [loggingIn, setLoggingIn] = useState(false)
 
   const { initOAuth } = useLoginWithOAuth({
     onComplete: () => {
       setLoggingIn(false)
-      toast.success('Logged in successfully!')
     },
     onError: (err) => {
       console.error('Login error:', err)
       setLoggingIn(false)
-      toast.error('Failed to log in with X.')
     },
   })
 
@@ -141,7 +140,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
     }
   }
 
-  // ── State ────────────────────────────────────────────────────────────────
+  // â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [caInput,      setCaInput]      = useState(initialCa || '')
   const [tokenInfo,    setTokenInfo]    = useState<TokenPrice | null>(null)
   const [fetchingInfo, setFetchingInfo] = useState(false)
@@ -159,7 +158,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
   const [approving,     setApproving]     = useState(false)
   const [swapping,      setSwapping]      = useState(false)
 
-  // ── Derived ──────────────────────────────────────────────────────────────
+  // â”€â”€ Derived â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const amountNum   = parseFloat(amount) || 0
   const ethBalance  = balance ? parseFloat(balance.formatted) : 0
   const maxBalance  = isBuy ? Math.max(0, ethBalance - 0.0005) : tokenBalance
@@ -175,7 +174,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
   const hasPrice   = tokenInfo ? tokenInfo.priceNative > 0 : false
   const canSwap    = hasEnough && !!tokenInfo && !swapping && !approving && hasPrice && !!address
 
-  // ── Fetch token info ─────────────────────────────────────────────────────
+  // â”€â”€ Fetch token info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const fetchTokenInfo = useCallback(async (addr: string) => {
     const clean = addr.trim()
     const isTxUrl = clean.includes('/tx/') || (clean.startsWith('0x') && clean.length === 66)
@@ -225,7 +224,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
     return () => clearTimeout(t)
   }, [initialCa])
 
-  // ── Fetch token balance ──────────────────────────────────────────────────
+  // â”€â”€ Fetch token balance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const fetchTokenBalance = useCallback(async (tokenAddr: string) => {
     if (!address || !isAddress(tokenAddr)) return
     setFetchingBalance(true)
@@ -255,7 +254,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
     return () => clearTimeout(t)
   }, [tokenInfo?.address, address, fetchTokenBalance])
 
-  // ── Helper: Determine Approval Spender ───────────────────────────────────
+  // â”€â”€ Helper: Determine Approval Spender â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const getSpender = useCallback(() => {
     if (!tokenInfo) return SWAP_ROUTER
     if (tokenInfo.dexType === 'pons-v2') {
@@ -265,7 +264,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
     return SWAP_ROUTER
   }, [tokenInfo])
 
-  // ── Check Allowance ───────────────────────────────────────────────────────
+  // â”€â”€ Check Allowance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const checkAllowance = useCallback(async () => {
     if (isBuy || !address || !tokenInfo?.address) {
       setNeedsApproval(false)
@@ -298,7 +297,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
     return () => clearTimeout(t)
   }, [checkAllowance])
 
-  // ── Helper: Get Viem Wallet Client ────────────────────────────────────────
+  // â”€â”€ Helper: Get Viem Wallet Client â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async function getViemWalletClient() {
     if (!embeddedWallet) throw new Error('Embedded wallet not available. Please ensure you are logged in.')
     await embeddedWallet.switchChain(activeChain.id)
@@ -311,7 +310,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
     return { client, account }
   }
 
-  // ── Approve Token Execution ──────────────────────────────────────────────
+  // â”€â”€ Approve Token Execution â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async function handleApprove() {
     if (!tokenInfo?.address || !address || !embeddedWallet) return
     setApproving(true)
@@ -326,7 +325,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
         args:         [targetSpender, maxUint256],
       })
 
-      toast('Approving token access in wallet...', { icon: '🔐' })
+      toast('Approving token access in wallet...')
       const hash = await client.sendTransaction({
         account,
         to:   tokenAddr,
@@ -334,21 +333,21 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
         gas:  100000n,
       })
 
-      toast.success(`✅ ${tokenInfo.symbol} access approved! You can now swap.`)
+      toast.success(`${tokenInfo.symbol} access approved! You can now swap.`)
       setNeedsApproval(false)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed'
       if (msg.includes('cancel') || msg.includes('reject') || msg.includes('denied')) {
         toast.error('Approval canceled.')
       } else {
-        toast.error(`❌ ${msg.slice(0, 120)}`)
+        toast.error(`${msg.slice(0, 120)}`)
       }
     } finally {
       setApproving(false)
     }
   }
 
-  // ── Swap Execution ───────────────────────────────────────────────────────
+  // â”€â”€ Swap Execution â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async function handleSwap() {
     if (!canSwap || !tokenInfo || !embeddedWallet || !address) return
 
@@ -375,7 +374,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
         })
         const amountInUnits = parseUnits(amount, tokenInfo.decimals)
         if (currentAllowance < amountInUnits) {
-          toast('Step 1/2: Approving token access in wallet...', { icon: '🔐' })
+          toast('Step 1/2: Approving token access in wallet...')
           const approveData = encodeFunctionData({
             abi:          erc20Abi,
             functionName: 'approve',
@@ -387,7 +386,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
             data: approveData,
             gas:  100000n,
           })
-          toast.success(`✅ ${tokenInfo.symbol} access approved! Please click Swap again.`)
+          toast.success(`${tokenInfo.symbol} access approved! Please click Swap again.`)
           setNeedsApproval(false)
           setSwapping(false)
           return
@@ -399,9 +398,9 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
       let txHash = ''
 
       if (isPonsV2) {
-        // ═════════════════════════════════════════════════════════════════════
-        // ── ROUTE 1: PONS V2 BONDING CURVE ═══════════════════════════════════
-        // ═════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // â”€â”€ ROUTE 1: PONS V2 BONDING CURVE â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         const curveAddr = getAddress(tokenInfo.curveAddress || tokenInfo.poolAddress || tokenAddr)
         const isNative = tokenInfo.isNative !== false && (!tokenInfo.pairToken || tokenInfo.pairToken === zeroAddress || tokenInfo.pairToken === '0x0000000000000000000000000000000000000000')
 
@@ -449,9 +448,9 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
           })
         }
       } else {
-        // ═════════════════════════════════════════════════════════════════════
-        // ── ROUTE 2: SUSHISWAP V3 ROUTER ═════════════════════════════════════
-        // ═════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // â”€â”€ ROUTE 2: SUSHISWAP V3 ROUTER â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         if (isBuy) {
           const amountInWei = parseEther(amount)
           const calldata = encodeFunctionData({
@@ -530,22 +529,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
         }
       }
 
-      toast.success(`✅ Swap ${fromSymbol} → ${toSymbol} successful!`)
-
-      // Kirim Notifikasi Instan ke Telegram
-      notifyManualSwap({
-        tradeType: isBuy ? 'BUY' : 'SELL',
-        tokenSymbol: tokenInfo?.symbol || (isBuy ? toSymbol : fromSymbol),
-        tokenName: tokenInfo?.name,
-        ca: tokenAddr,
-        inputAmount: amount,
-        inputSymbol: fromSymbol,
-        outputAmount: output > 0 ? output.toFixed(4) : '0',
-        outputSymbol: toSymbol,
-        txHash: txHash || undefined,
-      }).catch((err) => {
-        console.error('[Telegram] Failed to send swap notification:', err)
-      })
+      toast.success(`Swap ${fromSymbol} → ${toSymbol} successful!`)
 
       if (isBuy && tokenInfo?.address) {
         if (user?.id) trackTokenAddress(user.id, tokenInfo.address)
@@ -562,14 +546,14 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
       } else if (msg.includes('insufficient funds') || msg.includes('exceeds the balance')) {
         toast.error('Insufficient funds for swap + gas.')
       } else {
-        toast.error(`❌ ${msg.slice(0, 120)}`)
+        toast.error(`${msg.slice(0, 120)}`)
       }
     } finally {
       setSwapping(false)
     }
   }
 
-  // ── UI Helpers ───────────────────────────────────────────────────────────
+  // â”€â”€ UI Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function handleFlip() {
     setIsBuy(p => !p)
     setAmount('')
@@ -580,7 +564,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
       if (isBuy) {
         setAmount(maxBalance.toFixed(4))
       } else {
-        setAmount(maxBalance.toString())
+        setAmount(maxBalance >= 1 ? Math.floor(maxBalance).toString() : maxBalance.toString())
       }
     }
   }
@@ -595,21 +579,28 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
     onClose()
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
-    <Modal open={open} onClose={handleClose} title="Swap Tokens — Robinhood Chain">
+    <Modal open={open} onClose={handleClose} title="Swap Tokens â€” Robinhood Chain">
       <div className="flex flex-col gap-3">
 
         {/* Network & Slippage Header */}
-        <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300 bg-[#09110d] border border-white/[0.08] rounded-xl px-3 py-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300 bg-white/[0.02] border border-white/[0.08] rounded-xl px-3 py-2">
+          <span
+            className="w-1.5 h-1.5 rounded-full animate-pulse"
+            style={{ backgroundColor: theme.color, boxShadow: `0 0 8px ${theme.color}` }}
+          />
           <span>Robinhood Chain Mainnet (4663)</span>
           <button
             onClick={() => setShowSettings(p => !p)}
-            className="ml-auto text-zinc-400 hover:text-emerald-300 transition-colors text-xs font-mono"
+            className="ml-auto text-zinc-400 hover:text-white transition-colors text-xs font-mono flex items-center gap-1"
             title="Slippage settings"
           >
-            ⚙️ {slippage}%
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span>{slippage}%</span>
           </button>
         </div>
 
@@ -624,7 +615,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
                   onClick={() => setSlippage(s)}
                   className={`flex-1 py-1 text-xs rounded-lg border font-mono transition-colors ${
                     slippage === s
-                      ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 font-bold'
+                      ? 'liquid-pill-active font-bold'
                       : 'border-white/[0.08] text-zinc-400 hover:text-white'
                   }`}
                 >
@@ -640,7 +631,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs font-semibold text-zinc-300">Target Token (CA / Link)</label>
             {fetchingInfo && (
-              <span className="text-[11px] font-mono text-emerald-400 animate-pulse">
+              <span className="text-[11px] font-mono text-theme-light animate-pulse">
                 Fetching token pool...
               </span>
             )}
@@ -650,7 +641,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
             value={caInput}
             onChange={e => setCaInput(e.target.value)}
             placeholder="0x... or https://robinhood.social/tx/..."
-            className="w-full bg-[#09110d] border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 font-mono focus:outline-none focus:border-emerald-500/50 transition-colors"
+            className="w-full bg-[#09110d] border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 font-mono focus:outline-none focus:border-theme transition-colors"
           />
           {infoError && (
             <p className="text-xs text-rose-400 mt-1 font-mono">{infoError}</p>
@@ -661,7 +652,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
             <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-wider">Quick Pick:</span>
             <button
               onClick={() => setCaInput('0x5fc5360d0400a0fd4f2af552add042d716f1d168')}
-              className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-900/80 hover:bg-emerald-950/60 border border-white/[0.06] hover:border-emerald-500/30 text-zinc-300 hover:text-emerald-300 transition-all cursor-pointer"
+              className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-900/80 hover:bg-white/[0.06] border border-white/[0.06] hover:border-theme text-zinc-300 hover:text-white transition-all cursor-pointer"
             >
               $USDG
             </button>
@@ -670,11 +661,9 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
 
         {/* Token Card preview */}
         {tokenInfo && (
-          <div className="bg-[#09110d]/90 border border-emerald-500/20 rounded-xl p-3 flex items-center justify-between gap-3 animate-fadeIn">
+          <div className="bg-[#09110d]/90 border border-white/15 rounded-xl p-3 flex items-center justify-between gap-3 animate-fadeIn">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg overflow-hidden border border-emerald-500/30 flex items-center justify-center bg-black relative flex-shrink-0">
-                <Image src="/logo.svg" alt={tokenInfo.symbol} width={32} height={32} className="object-cover" />
-              </div>
+              <SparkleIcon size={32} className="flex-shrink-0" />
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm font-bold text-white truncate">{tokenInfo.name}</span>
@@ -682,13 +671,13 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
                 </div>
                 <div className="text-[11px] text-zinc-400 font-mono">
                   {tokenInfo.priceNative > 0
-                    ? `1 ${tokenInfo.symbol} ≈ ${tokenInfo.priceNative < 0.0001 ? tokenInfo.priceNative.toFixed(10) : tokenInfo.priceNative.toFixed(6)} ETH`
+                    ? `1 ${tokenInfo.symbol} â‰ˆ ${tokenInfo.priceNative < 0.0001 ? tokenInfo.priceNative.toFixed(10) : tokenInfo.priceNative.toFixed(6)} ETH`
                     : 'Pool not active'}
                 </div>
               </div>
             </div>
             <div className="text-right flex-shrink-0">
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono uppercase">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full liquid-pill text-theme-light border-theme font-mono uppercase">
                 {tokenInfo.dexType === 'pons-v2' ? 'Pons V2' : 'Sushi V3'}
               </span>
             </div>
@@ -704,7 +693,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
               {maxBalance > 0 && (
                 <button
                   onClick={handleMax}
-                  className="text-emerald-400 hover:text-emerald-300 font-bold ml-1 cursor-pointer"
+                  className="text-theme-light hover:text-white font-bold ml-1 cursor-pointer"
                 >
                   MAX
                 </button>
@@ -722,9 +711,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
               className="flex-1 min-w-0 bg-transparent text-xl sm:text-2xl font-bold text-white font-mono focus:outline-none placeholder-zinc-600"
             />
             <div className="flex items-center gap-1.5 bg-[#09110d] border border-white/[0.08] rounded-xl px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-bold text-white select-none flex-shrink-0">
-              <div className="w-4 h-4 rounded-full overflow-hidden border border-emerald-500/30 flex items-center justify-center bg-black relative flex-shrink-0">
-                <Image src="/logo.svg" alt="token" width={16} height={16} className="object-cover" />
-              </div>
+              <SparkleIcon size={16} className="flex-shrink-0" />
               <span>{fromSymbol}</span>
             </div>
           </div>
@@ -734,7 +721,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
         <div className="flex justify-center -my-1">
           <button
             onClick={handleFlip}
-            className="bg-zinc-900 hover:bg-emerald-600 border border-white/[0.08] rounded-xl p-2 transition-all text-zinc-400 hover:text-white cursor-pointer"
+            className="bg-zinc-900 hover:bg-white/[0.1] border border-white/[0.08] hover:border-theme rounded-xl p-2 transition-all text-zinc-400 hover:text-white cursor-pointer"
             title="Switch Direction"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -751,8 +738,8 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
               <span className="text-xs font-medium">
                 {tokenInfo.source === 'geckoterminal' && <span className="text-zinc-400 font-mono">GeckoTerminal</span>}
                 {tokenInfo.source === 'dexscreener'   && <span className="text-zinc-400 font-mono">DexScreener</span>}
-                {tokenInfo.source === 'onchain_reserves' && <span className="text-emerald-400 font-mono">Pons V2 Pool</span>}
-                {tokenInfo.source === 'onchain_v3'    && <span className="text-emerald-400 font-mono">Sushi V3 Pool</span>}
+                {tokenInfo.source === 'onchain_reserves' && <span className="text-theme-light font-mono">Pons V2 Pool</span>}
+                {tokenInfo.source === 'onchain_v3'    && <span className="text-theme-light font-mono">Sushi V3 Pool</span>}
                 {tokenInfo.source === 'not_found'      && <span className="text-rose-400">Pool not found</span>}
               </span>
             )}
@@ -762,9 +749,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
               {tokenInfo && amountNum > 0 && output > 0 ? fmt(output) : '0.0'}
             </div>
             <div className="flex items-center gap-1.5 bg-[#09110d] border border-white/[0.08] rounded-xl px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-bold text-white select-none flex-shrink-0">
-              <div className="w-4 h-4 rounded-full overflow-hidden border border-emerald-500/30 flex items-center justify-center bg-black relative flex-shrink-0">
-                <Image src="/logo.svg" alt="token" width={16} height={16} className="object-cover" />
-              </div>
+              <SparkleIcon size={16} className="flex-shrink-0" />
               <span>{toSymbol}</span>
             </div>
           </div>
@@ -778,9 +763,9 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
               <span className="text-zinc-200 font-medium">
                 {tokenInfo.priceNative > 0
                   ? isBuy
-                    ? `1 ETH ≈ ${fmt(1 / tokenInfo.priceNative, 0)} ${tokenInfo.symbol}`
-                    : `1 ${tokenInfo.symbol} ≈ ${tokenInfo.priceNative < 0.0001 ? tokenInfo.priceNative.toFixed(10) : tokenInfo.priceNative.toFixed(6)} ETH`
-                  : '—'}
+                    ? `1 ETH â‰ˆ ${fmt(1 / tokenInfo.priceNative, 0)} ${tokenInfo.symbol}`
+                    : `1 ${tokenInfo.symbol} â‰ˆ ${tokenInfo.priceNative < 0.0001 ? tokenInfo.priceNative.toFixed(10) : tokenInfo.priceNative.toFixed(6)} ETH`
+                  : 'â€”'}
               </span>
             </div>
             <div className="flex justify-between">
@@ -818,7 +803,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
         ) : !hasPrice ? (
           <Button variant="secondary" disabled className="w-full">
             {tokenInfo.source === 'not_found'
-              ? '⚠️ Pool not yet created on DEX'
+              ? 'Pool not yet created on DEX'
               : 'Price not available'}
           </Button>
         ) : !hasEnough && amountNum > 0 ? (
@@ -851,3 +836,4 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
     </Modal>
   )
 }
+
