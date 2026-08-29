@@ -28,24 +28,42 @@ export interface ParsedLaunchCommand {
   name: string
   description: string
   imageUrl: string
+  tweetUrl: string
 }
 
-export function parseTweetLaunchCommand(text: string, defaultImageUrl = ''): ParsedLaunchCommand | null {
+export function parseTweetLaunchCommand(text: string, defaultImageUrl = '', authorHandle = '', tweetId = ''): ParsedLaunchCommand | null {
+  // Normalize text: remove mentions
   const clean = text.replace(/@\w+/g, '').trim()
-  const tickerMatch = clean.match(/\$([A-Za-z0-9_]{2,15})/i) || clean.match(/(?:launch|deploy)\s+([A-Za-z0-9_]{2,15})/i)
+
+  // Match $TICKER or "launch token $TICKER" or "launch $TICKER" or "launch token TICKER"
+  const tickerMatch = clean.match(/\$([A-Za-z0-9_]{2,15})/i) || 
+                      clean.match(/(?:launch\s+token|launch|deploy\s+token|deploy)\s+\$?([A-Za-z0-9_]{2,15})/i)
   
   if (!tickerMatch) return null
   const symbol = tickerMatch[1].toUpperCase()
 
-  const parts = clean.replace(/^(?:launch|deploy)\s+/i, '').replace(tickerMatch[0], '').trim().split(/\n|\.|-/)
-  const name = parts[0]?.trim() || `${symbol} Coin`
-  const description = parts.slice(1).join(' ').trim() || `Community memecoin $${symbol} launched via PONSCORE Twitter Bot on Robinhood Chain.`
+  // Extract custom name if user wrote extra words after ticker
+  let remainingText = clean
+    .replace(/^(?:launch\s+token|launch|deploy\s+token|deploy)\s+/i, '')
+    .replace(tickerMatch[0], '')
+    .replace(/\$/g, '')
+    .trim()
+
+  const parts = remainingText.split(/\n|\.|-|—/)
+  const customName = parts[0]?.trim()
+  const name = customName && customName.length > 1 ? customName.slice(0, 32) : symbol
+  const description = parts.slice(1).join(' ').trim() || `Community token $${symbol} launched via @agent_ponscore on Robinhood Chain.`
+
+  const tweetUrl = tweetId && !tweetId.startsWith('sim_') 
+    ? `https://x.com/${authorHandle}/status/${tweetId}`
+    : (authorHandle ? `https://x.com/${authorHandle}` : 'https://ponscore.app')
 
   return {
     symbol,
-    name: name.slice(0, 32),
+    name,
     description,
     imageUrl: defaultImageUrl,
+    tweetUrl,
   }
 }
 
@@ -66,11 +84,17 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
     }
   }
 
-  const parsed = parseTweetLaunchCommand(payload.text, payload.imageUrl || 'https://ipfs.io/ipfs/bafkreicaxbt5gboi3h3ucjnojh5u2wkxomdt3tmrofv5dseknzfefd3ls4')
+  const parsed = parseTweetLaunchCommand(
+    payload.text, 
+    payload.imageUrl || 'https://ipfs.io/ipfs/bafkreicaxbt5gboi3h3ucjnojh5u2wkxomdt3tmrofv5dseknzfefd3ls4',
+    payload.authorHandle,
+    payload.tweetId
+  )
+
   if (!parsed) {
     return {
       success: false,
-      message: `@${payload.authorHandle} Invalid launch format. Use: @ponscorebot launch $TICKER Name Description and attach an image.`,
+      message: `@${payload.authorHandle} Invalid launch format. Use: @agent_ponscore launch token $TICKER and attach an image.`,
     }
   }
 
@@ -98,8 +122,9 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
     transport: http('https://robinhood-rpc.publicnode.com'),
   })
 
+  // Use the image or ipfs URI
   const metadataUri = parsed.imageUrl
-  console.log(`[Bot Worker] Launching $${parsed.symbol} for @${payload.authorHandle} on Robinhood Chain...`)
+  console.log(`[Bot Worker] Launching $${parsed.symbol} (${parsed.name}) for @${payload.authorHandle} on Robinhood Chain...`)
 
   const txHash = await walletClient.sendTransaction({
     to: FACTORY_ADDRESS,
@@ -229,7 +254,6 @@ async function pollMentions() {
   const botHandle = process.env.TWITTER_BOT_HANDLE || 'agent_ponscore'
 
   if (!bearerToken) {
-    console.log('[Twitter Worker] TWITTER_BEARER_TOKEN not found. Running in standby mode...')
     return
   }
 
@@ -309,7 +333,6 @@ async function pollMentions() {
   }
 }
 
-// Start continuous polling loop if executed directly
 if (require.main === module) {
   console.log('[Twitter Bot Worker] Started autonomous listener on Robinhood Chain...')
   pollMentions()
