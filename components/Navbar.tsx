@@ -131,6 +131,11 @@ export default function Navbar({
       href: '/wallet',
       code: '03',
     },
+    {
+      label: 'X BOT',
+      href: '/bot',
+      code: '04',
+    },
   ]
 
   return (
@@ -333,6 +338,15 @@ export default function Navbar({
                     >
                       <span>[03]</span>
                       <span>WALLET & PORTFOLIO</span>
+                    </Link>
+
+                    <Link
+                      href="/bot"
+                      onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded text-xs font-bold text-sky-400 hover:text-black hover:bg-sky-400 transition-all cursor-pointer"
+                    >
+                      <span>[04]</span>
+                      <span>TWITTER (X) BOT</span>
                     </Link>
 
                     <div className="my-1 border-t border-zinc-800" />
