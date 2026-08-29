@@ -4,11 +4,12 @@ import { robinhoodChain } from '../lib/chains'
 import { getBotUsers, decryptPrivateKey, saveBotUsers, BotUser } from '../lib/bot-wallet'
 import path from 'path'
 import { readFile, writeFile } from 'fs/promises'
+import crypto from 'crypto'
 
 const FACTORY_ADDRESS = '0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e' as `0x${string}`
 const LAUNCH_FEE = parseEther('0.0005')
 const REGISTRY_FILE = path.join(process.cwd(), 'data', 'launched_tokens.json')
-const CACHE_FILE = path.join(process.cwd(), 'data', 'tokens_cache.json')
+const STATE_FILE = path.join(process.cwd(), 'data', 'bot_state.json')
 
 const FACTORY_ABI = parseAbi([
   'function launchToken(string name, string symbol, string uri, address pairToken, uint24 poolFee, int24 tickSpacing, uint16 creatorTaxBps) payable returns (address token, address curve)',
@@ -78,9 +79,8 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
     transport: http('https://robinhood-rpc.publicnode.com'),
   })
 
-  // Check deposit wallet balance
   const balance = await publicClient.getBalance({ address: user.walletAddress })
-  const requiredBalance = LAUNCH_FEE + parseEther('0.0003') // 0.0005 fee + gas buffer
+  const requiredBalance = LAUNCH_FEE + parseEther('0.0003')
 
   if (balance < requiredBalance) {
     return {
@@ -89,7 +89,6 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
     }
   }
 
-  // Decrypt user's deposit wallet private key
   const privateKey = decryptPrivateKey(user.encryptedPrivateKey, user.iv, user.tag)
   const account = privateKeyToAccount(privateKey)
 
@@ -100,9 +99,8 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
   })
 
   const metadataUri = parsed.imageUrl
-  console.log(`[Bot Worker] Launching $${parsed.symbol} for @${payload.authorHandle} (Privy: ${user.privyWalletAddress || user.walletAddress}) on Robinhood Chain...`)
+  console.log(`[Bot Worker] Launching $${parsed.symbol} for @${payload.authorHandle} on Robinhood Chain...`)
 
-  // Call Pons v2 Factory launchToken
   const txHash = await walletClient.sendTransaction({
     to: FACTORY_ADDRESS,
     value: LAUNCH_FEE,
@@ -113,17 +111,16 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
         parsed.name,
         parsed.symbol,
         metadataUri,
-        '0x0000000000000000000000000000000000000000', // Native ETH pair
-        0, // 0% pool fee
-        200, // 200 tick spacing
-        100, // 1% creator tax
+        '0x0000000000000000000000000000000000000000',
+        0,
+        200,
+        100,
       ],
     }),
   })
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
 
-  // Extract deployed token address from logs
   let deployedTokenCa = ''
   for (const log of receipt.logs) {
     try {
@@ -140,7 +137,6 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
     } catch { /* continue */ }
   }
 
-  // Save to launched tokens registry
   if (deployedTokenCa) {
     try {
       const rawStored = await readFile(REGISTRY_FILE, 'utf-8').catch(() => '[]')
@@ -152,7 +148,6 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
     } catch { /* ignore */ }
   }
 
-  // Update user stats
   user.totalLaunches = (user.totalLaunches || 0) + 1
   await saveBotUsers(users)
 
@@ -165,4 +160,158 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
     tokenAddress: deployedTokenCa,
     txHash,
   }
+}
+
+// -------------------------------------------------------------
+// TWITTER API V2 OAUTH 1.0A & POLLING LISTENER
+// -------------------------------------------------------------
+
+function generateOAuthHeader(method: string, url: string, params: Record<string, string> = {}) {
+  const apiKey = process.env.TWITTER_API_KEY || ''
+  const apiSecret = process.env.TWITTER_API_SECRET || ''
+  const token = process.env.TWITTER_ACCESS_TOKEN || ''
+  const tokenSecret = process.env.TWITTER_ACCESS_SECRET || ''
+
+  const oauthParams: Record<string, string> = {
+    oauth_consumer_key: apiKey,
+    oauth_nonce: crypto.randomBytes(16).toString('hex'),
+    oauth_signature_method: 'HMAC-SHA1',
+    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
+    oauth_token: token,
+    oauth_version: '1.0',
+    ...params,
+  }
+
+  const sortedKeys = Object.keys(oauthParams).sort()
+  const paramString = sortedKeys.map(k => `${encodeURIComponent(k)}=${encodeURIComponent(oauthParams[k])}`).join('&')
+  const baseString = `${method.toUpperCase()}&${encodeURIComponent(url)}&${encodeURIComponent(paramString)}`
+  const signingKey = `${encodeURIComponent(apiSecret)}&${encodeURIComponent(tokenSecret)}`
+  const signature = crypto.createHmac('sha1', signingKey).update(baseString).digest('base64')
+
+  oauthParams['oauth_signature'] = signature
+
+  const authHeader = 'OAuth ' + Object.keys(oauthParams)
+    .filter(k => k.startsWith('oauth_'))
+    .sort()
+    .map(k => `${encodeURIComponent(k)}="${encodeURIComponent(oauthParams[k])}"`)
+    .join(', ')
+
+  return authHeader
+}
+
+async function postTwitterReply(replyText: string, inReplyToTweetId: string) {
+  const url = 'https://api.twitter.com/2/tweets'
+  const body = JSON.stringify({
+    text: replyText,
+    reply: { in_reply_to_tweet_id: inReplyToTweetId },
+  })
+
+  const authHeader = generateOAuthHeader('POST', url)
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': authHeader,
+      'Content-Type': 'application/json',
+    },
+    body,
+  })
+
+  if (!res.ok) {
+    const errText = await res.text()
+    console.error('[Twitter API Error] Failed to post reply:', res.status, errText)
+  } else {
+    console.log('[Twitter API] Reply posted successfully for tweet:', inReplyToTweetId)
+  }
+}
+
+async function pollMentions() {
+  const bearerToken = process.env.TWITTER_BEARER_TOKEN
+  const botHandle = process.env.TWITTER_BOT_HANDLE || 'agent_ponscore'
+
+  if (!bearerToken) {
+    console.log('[Twitter Worker] TWITTER_BEARER_TOKEN not found. Running in standby mode...')
+    return
+  }
+
+  try {
+    let state = { lastSeenId: '' }
+    try {
+      const raw = await readFile(STATE_FILE, 'utf-8')
+      state = JSON.parse(raw)
+    } catch { /* ignore */ }
+
+    const query = encodeURIComponent(`@${botHandle} -is:retweet`)
+    let url = `https://api.twitter.com/2/tweets/search/recent?query=${query}&expansions=attachments.media_keys,author_id&media.fields=url,preview_image_url&user.fields=username`
+    if (state.lastSeenId) {
+      url += `&since_id=${state.lastSeenId}`
+    }
+
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${bearerToken}` },
+    })
+
+    if (!res.ok) {
+      if (res.status === 429) {
+        console.log('[Twitter Worker] Rate limit reached. Waiting for next cycle...')
+      }
+      return
+    }
+
+    const data = await res.json()
+    if (!data.data || data.data.length === 0) return
+
+    const usersMap = new Map<string, string>()
+    if (data.includes?.users) {
+      for (const u of data.includes.users) {
+        usersMap.set(u.id, u.username)
+      }
+    }
+
+    const mediaMap = new Map<string, string>()
+    if (data.includes?.media) {
+      for (const m of data.includes.media) {
+        const img = m.url || m.preview_image_url
+        if (img) mediaMap.set(m.media_key, img)
+      }
+    }
+
+    for (const tweet of data.data) {
+      const authorUsername = usersMap.get(tweet.author_id) || ''
+      if (!authorUsername || authorUsername.toLowerCase() === botHandle.toLowerCase()) continue
+
+      let imageUrl = ''
+      if (tweet.attachments?.media_keys?.length) {
+        for (const k of tweet.attachments.media_keys) {
+          if (mediaMap.has(k)) {
+            imageUrl = mediaMap.get(k)!
+            break
+          }
+        }
+      }
+
+      console.log(`[Twitter Worker] Processing mention from @${authorUsername}: "${tweet.text}"`)
+      const result = await processTweetLaunch({
+        tweetId: tweet.id,
+        authorHandle: authorUsername,
+        text: tweet.text,
+        imageUrl: imageUrl || undefined,
+      })
+
+      if (process.env.TWITTER_API_KEY && process.env.TWITTER_ACCESS_TOKEN) {
+        await postTwitterReply(result.message, tweet.id)
+      }
+
+      state.lastSeenId = tweet.id
+      await writeFile(STATE_FILE, JSON.stringify(state, null, 2))
+    }
+  } catch (err) {
+    console.error('[Twitter Worker Polling Error]:', err)
+  }
+}
+
+// Start continuous polling loop if executed directly
+if (require.main === module) {
+  console.log('[Twitter Bot Worker] Started autonomous listener on Robinhood Chain...')
+  pollMentions()
+  setInterval(pollMentions, 15000)
 }
