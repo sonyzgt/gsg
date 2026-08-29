@@ -21,7 +21,6 @@ import { activeChain, robinhoodChain } from '@/lib/chains'
 import {
   PonsV2TokenInfo,
   PONS_CURVE_ABI,
-  FEE_ESCROW,
 } from '@/lib/pons-v2'
 import Button from '@/components/ui/Button'
 import toast from 'react-hot-toast'
@@ -78,7 +77,7 @@ const SWAP_ABI = [
 ] as const
 
 export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidgetProps) {
-  const { user, authenticated } = usePrivy()
+  const { authenticated } = usePrivy()
   const { address, balance, embeddedWallet, refetchBalance } = useWallet()
   const { theme } = useTheme()
   const [loggingIn, setLoggingIn] = useState(false)
@@ -94,8 +93,8 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
   const [showSettings, setShowSettings] = useState(false)
 
   const [tokenBalanceRaw, setTokenBalanceRaw] = useState<bigint>(0n)
-  const [tokenBalanceFormatted, setTokenBalanceFormatted] = useState('0')
-  const [fetchingTokenBal, setFetchingTokenBal] = useState(false)
+  const [, setTokenBalanceFormatted] = useState('0')
+  const [, setFetchingTokenBal] = useState(false)
 
   const [needsApproval, setNeedsApproval] = useState(false)
   const [approving, setApproving] = useState(false)
@@ -124,7 +123,11 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
       })
       setTokenBalanceRaw(bal)
       const formatted = formatUnits(bal, 18)
-      setTokenBalanceFormatted(parseFloat(formatted) < 0.01 && bal > 0n ? formatted.slice(0, 8) : parseFloat(formatted).toLocaleString('en-US', { maximumFractionDigits: 2 }))
+      setTokenBalanceFormatted(
+        parseFloat(formatted) < 0.01 && bal > 0n
+          ? formatted.slice(0, 8)
+          : parseFloat(formatted).toLocaleString('en-US', { maximumFractionDigits: 2 })
+      )
     } catch {
       // ignore
     } finally {
@@ -175,16 +178,15 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
   const tokenBalanceNum = parseFloat(formatUnits(tokenBalanceRaw, 18))
   const amountNum = parseFloat(amount) || 0
 
-  // Bonding curve & DEX estimate output calculation
+  // Output estimation
   const estimatedOutput = useMemo(() => {
     if (amountNum <= 0) return 0
-    const priceNative = token.priceNative > 0 ? token.priceNative : (isGraduated ? 0.000000007 : 0.0000000025)
+    const priceNative =
+      token.priceNative > 0 ? token.priceNative : isGraduated ? 0.000000007 : 0.0000000025
     if (isBuy) {
-      // ETH in -> Tokens out (accounting for fee ~1-2%)
       const feeDeduction = amountNum * 0.985
       return feeDeduction / priceNative
     } else {
-      // Tokens in -> ETH out (accounting for fee ~1-2%)
       const grossEth = amountNum * priceNative
       return grossEth * 0.985
     }
@@ -258,11 +260,11 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
       const userAddr = getAddress(address)
 
       if (isCurve) {
-        // ── ROUTE 1: ACTIVE PONS V2 BONDING CURVE ──
+        // Active Bonding Curve Route
         if (isBuy) {
           toast(`Buying $${token.symbol} on Bonding Curve...`)
           const quoteIn = parseEther(amount)
-          const minTokensOut = 0n // Slippage tolerance
+          const minTokensOut = 0n
 
           const calldata = encodeFunctionData({
             abi: PONS_CURVE_ABI,
@@ -296,7 +298,7 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
           })
         }
       } else {
-        // ── ROUTE 2: UNISWAP / SUSHISWAP V3 ROUTER (GRADUATED TOKEN) ──
+        // Graduated DEX Route
         const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200)
         const fee = token.poolFee || 10000
         const tokenAddr = getAddress(token.tokenAddress)
@@ -307,16 +309,18 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
           const calldata = encodeFunctionData({
             abi: SWAP_ABI,
             functionName: 'exactInputSingle',
-            args: [{
-              tokenIn: WETH,
-              tokenOut: tokenAddr,
-              fee,
-              recipient: userAddr,
-              deadline,
-              amountIn: amountInWei,
-              amountOutMinimum: 0n,
-              sqrtPriceLimitX96: 0n,
-            }],
+            args: [
+              {
+                tokenIn: WETH,
+                tokenOut: tokenAddr,
+                fee,
+                recipient: userAddr,
+                deadline,
+                amountIn: amountInWei,
+                amountOutMinimum: 0n,
+                sqrtPriceLimitX96: 0n,
+              },
+            ],
           })
 
           await walletClient.sendTransaction({
@@ -332,16 +336,18 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
           const swapCall = encodeFunctionData({
             abi: SWAP_ABI,
             functionName: 'exactInputSingle',
-            args: [{
-              tokenIn: tokenAddr,
-              tokenOut: WETH,
-              fee,
-              recipient: SWAP_ROUTER,
-              deadline,
-              amountIn: tokensIn,
-              amountOutMinimum: 0n,
-              sqrtPriceLimitX96: 0n,
-            }],
+            args: [
+              {
+                tokenIn: tokenAddr,
+                tokenOut: WETH,
+                fee,
+                recipient: SWAP_ROUTER,
+                deadline,
+                amountIn: tokensIn,
+                amountOutMinimum: 0n,
+                sqrtPriceLimitX96: 0n,
+              },
+            ],
           })
 
           const unwrapCall = encodeFunctionData({
@@ -365,13 +371,20 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
         }
       }
 
-      toast.success(`Swap ${isBuy ? `ETH → $${token.symbol}` : `$${token.symbol} → ETH`} successful!`)
+      toast.success(
+        `Swap ${isBuy ? `ETH → $${token.symbol}` : `$${token.symbol} → ETH`} successful!`
+      )
       setAmount('')
       await Promise.all([refetchBalance(), fetchTokenBal()])
       if (onSwapSuccess) onSwapSuccess()
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Swap failed'
-      if (msg.includes('cancel') || msg.includes('reject') || msg.includes('denied') || msg.includes('User rejected')) {
+      if (
+        msg.includes('cancel') ||
+        msg.includes('reject') ||
+        msg.includes('denied') ||
+        msg.includes('User rejected')
+      ) {
         toast.error('Transaction canceled.')
       } else if (msg.includes('insufficient funds') || msg.includes('exceeds')) {
         toast.error('Insufficient funds for amount + gas fee.')
@@ -381,7 +394,9 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
     } finally {
       setSwapping(false)
     }
-  }  return (
+  }
+
+  return (
     <div
       style={{
         boxShadow: `5px 5px 0px 0px ${isBuy ? theme.color : '#f43f5e'}`,
@@ -429,7 +444,12 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
           title="Slippage Settings"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2.5}
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+            />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
           <span>{slippage}%</span>
@@ -462,249 +482,238 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
         </div>
       )}
 
-      {/* If token is graduated to Uniswap v4 */}
-      {isGraduated ? (
-        <div className="flex flex-col gap-4 bg-[#121519] border-2 border-amber-400/80 rounded-lg p-4 sm:p-5 shadow-[3px_3px_0px_0px_#f59e0b]">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-black px-2 py-0.5 bg-amber-400 text-black border border-black uppercase">
-              GRADUATED TO UNISWAP V4
+      {/* Graduated Notification Banner */}
+      {isGraduated && (
+        <div className="bg-[#121519] border-2 border-amber-400/80 rounded-lg p-3 flex items-center justify-between gap-2 shadow-[2px_2px_0px_0px_#f59e0b] animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black px-1.5 py-0.5 bg-amber-400 text-black border border-black uppercase">
+              GRADUATED
             </span>
-            <span className="text-[10px] text-amber-300 font-bold uppercase">100% RAISED</span>
+            <span className="text-[11px] text-zinc-300 font-bold">100% Raised → Uniswap v4 Locked</span>
           </div>
+          <span className="text-[10px] text-amber-300 font-mono font-bold uppercase hidden sm:inline">DEX LIVE</span>
+        </div>
+      )}
 
-          <p className="text-xs text-zinc-300 font-sans leading-relaxed">
-            Target bonding curve (4.2 ETH) telah tercapai 100%. Likuiditas telah dikunci permanen di Uniswap v4. Perdagangan aktif di DEX aggregators.
-          </p>
-
-          <div className="bg-black border border-zinc-800 rounded p-3 text-xs flex flex-col gap-1.5 text-zinc-400">
-            <div className="flex justify-between">
-              <span>STATUS:</span>
-              <span className="text-amber-400 font-bold">UNISWAP V4 (LOCKED)</span>
-            </div>
-            <div className="flex justify-between">
-              <span>EST. MARKET CAP:</span>
-              <span className="text-white font-bold">${(token.priceUsd * 1000000000).toLocaleString('en-US', { maximumFractionDigits: 0 })} USD</span>
-            </div>
-            <div className="flex justify-between">
-              <span>EST. PRICE:</span>
-              <span className="text-white font-bold">{token.priceNative.toFixed(9)} ETH</span>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2 pt-1">
-            <a
-              href={`https://dexscreener.com/robinhood/${token.tokenAddress}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-3 bg-[#181b20] hover:bg-white text-white hover:text-black border-2 border-white text-xs font-black uppercase text-center rounded shadow-[2px_2px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer"
+      {/* Amount Input Box */}
+      <div className="bg-[#121519] border-2 border-zinc-700 rounded-lg p-4 flex flex-col gap-3 shadow-[3px_3px_0px_0px_#000000]">
+        <div className="flex items-center justify-between text-xs text-zinc-400">
+          <span className="font-black uppercase">{isBuy ? '// YOU_PAY (ETH)' : `// YOU_PAY ($${token.symbol})`}</span>
+          <div className="flex items-center gap-1 font-bold">
+            <span>
+              BAL: {isBuy ? `${ethBalanceNum.toFixed(4)} ETH` : `${tokenBalanceNum.toLocaleString()} $${token.symbol}`}
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                setAmount(
+                  isBuy
+                    ? Math.max(0, ethBalanceNum - 0.0002).toFixed(4)
+                    : tokenBalanceNum >= 1
+                    ? Math.floor(tokenBalanceNum).toString()
+                    : tokenBalanceNum.toString()
+                )
+              }
+              className="text-theme-light hover:underline font-black cursor-pointer uppercase"
             >
-              <span>TRADE ON DEXSCREENER</span>
-            </a>
-            <a
-              href={`https://gmgn.ai/robinhood/token/${token.tokenAddress}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-2.5 bg-black hover:bg-amber-400 text-amber-300 hover:text-black border-2 border-amber-400 text-xs font-black uppercase text-center rounded shadow-[2px_2px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span>TRADE ON GMGN.AI</span>
-            </a>
-            <a
-              href={`https://robinhoodchain.blockscout.com/token/${token.tokenAddress}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-2 bg-black hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-700 text-[11px] font-bold uppercase text-center rounded transition-all cursor-pointer"
-            >
-              <span>VIEW POOL ON BLOCKSCOUT</span>
-            </a>
+              [MAX]
+            </button>
           </div>
         </div>
-      ) : (
-        <>
-          {/* Amount Input Box */}
-          <div className="bg-[#121519] border-2 border-zinc-700 rounded-lg p-4 flex flex-col gap-3 shadow-[3px_3px_0px_0px_#000000]">
-            <div className="flex items-center justify-between text-xs text-zinc-400">
-              <span className="font-black uppercase">{isBuy ? '// YOU_PAY (ETH)' : `// YOU_PAY ($${token.symbol})`}</span>
-              <div className="flex items-center gap-1 font-bold">
-                <span>
-                  BAL: {isBuy ? `${ethBalanceNum.toFixed(4)} ETH` : `${tokenBalanceNum.toLocaleString()} $${token.symbol}`}
+
+        <div className="flex items-center justify-between gap-3">
+          <input
+            type="number"
+            step="any"
+            min="0"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.0"
+            className="flex-1 w-0 min-w-0 bg-transparent text-2xl sm:text-3xl font-black text-white placeholder-zinc-700 focus:outline-none"
+          />
+
+          <div className="flex items-center gap-2 bg-black px-3 py-1.5 rounded border border-zinc-700 flex-shrink-0">
+            {isBuy ? (
+              <>
+                <SparkleIcon size={18} className="flex-shrink-0" />
+                <span className="text-xs font-black text-white">ETH</span>
+              </>
+            ) : (
+              <>
+                <div className="w-5 h-5 rounded-none overflow-hidden border border-white flex items-center justify-center bg-black">
+                  <TokenImage
+                    src={token.logo}
+                    alt={token.symbol}
+                    size={20}
+                    sparkleSize={14}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <span className="text-xs font-black text-white truncate max-w-[80px]">
+                  {token.symbol}
                 </span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Quick Amount Pills */}
+        <div className="grid grid-cols-4 gap-1.5 pt-1">
+          {isBuy
+            ? [
+                { label: '0.001', val: '0.001' },
+                { label: '0.005', val: '0.005' },
+                { label: '0.01', val: '0.01' },
+                { label: '0.05', val: '0.05' },
+              ].map((c) => (
                 <button
+                  key={c.label}
                   type="button"
-                  onClick={() =>
-                    setAmount(
-                      isBuy
-                        ? Math.max(0, ethBalanceNum - 0.0002).toFixed(4)
-                        : tokenBalanceNum >= 1
-                        ? Math.floor(tokenBalanceNum).toString()
-                        : tokenBalanceNum.toString()
-                    )
-                  }
-                  className="text-theme-light hover:underline font-black cursor-pointer uppercase"
+                  onClick={() => setAmount(c.val)}
+                  className="py-1 rounded bg-black hover:bg-white text-zinc-300 hover:text-black border border-zinc-700 hover:border-white text-[10px] sm:text-xs font-black transition-all shadow-[1px_1px_0px_0px_#000000] cursor-pointer"
                 >
-                  [MAX]
+                  {c.label} ETH
                 </button>
-              </div>
-            </div>
+              ))
+            : [
+                { label: '25%', pct: 0.25 },
+                { label: '50%', pct: 0.5 },
+                { label: '75%', pct: 0.75 },
+                { label: '100%', pct: 1.0 },
+              ].map((c) => (
+                <button
+                  key={c.label}
+                  type="button"
+                  onClick={() => {
+                    const raw = tokenBalanceNum * c.pct
+                    setAmount(raw >= 1 ? Math.floor(raw).toString() : raw.toFixed(2))
+                  }}
+                  className="py-1 rounded bg-black hover:bg-rose-600 text-zinc-300 hover:text-white border border-zinc-700 hover:border-white text-[10px] sm:text-xs font-black transition-all shadow-[1px_1px_0px_0px_#000000] cursor-pointer"
+                >
+                  {c.label}
+                </button>
+              ))}
+        </div>
+      </div>
 
-            <div className="flex items-center justify-between gap-3">
-              <input
-                type="number"
-                step="any"
-                min="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.0"
-                className="flex-1 w-0 min-w-0 bg-transparent text-2xl sm:text-3xl font-black text-white placeholder-zinc-700 focus:outline-none"
-              />
+      {/* Output Preview */}
+      <div className="bg-[#121519] border-2 border-zinc-700 rounded-lg p-4 flex flex-col gap-2 shadow-[3px_3px_0px_0px_#000000]">
+        <div className="flex items-center justify-between text-xs text-zinc-400">
+          <span className="font-black uppercase">{isBuy ? '// YOU_RECEIVE' : '// YOU_RECEIVE (ETH)'}</span>
+          <span className="text-[10px] text-zinc-500 font-bold uppercase">EST. OUTPUT</span>
+        </div>
 
-              <div className="flex items-center gap-2 bg-black px-3 py-1.5 rounded border border-zinc-700 flex-shrink-0">
-                {isBuy ? (
-                  <>
-                    <SparkleIcon size={18} className="flex-shrink-0" />
-                    <span className="text-xs font-black text-white">ETH</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-5 h-5 rounded-none overflow-hidden border border-white flex items-center justify-center bg-black">
-                      <TokenImage
-                        src={token.logo}
-                        alt={token.symbol}
-                        size={20}
-                        sparkleSize={14}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <span className="text-xs font-black text-white truncate max-w-[80px]">
-                      {token.symbol}
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xl sm:text-2xl font-black text-theme-light truncate">
+            {estimatedOutput > 0
+              ? isBuy
+                ? estimatedOutput.toLocaleString('en-US', { maximumFractionDigits: 2 })
+                : estimatedOutput.toFixed(6)
+              : '0.00'}
+          </span>
+          <span className="text-xs font-black text-white bg-black px-3 py-1.5 rounded border border-zinc-700 flex-shrink-0">
+            {isBuy ? `$${token.symbol}` : 'ETH'}
+          </span>
+        </div>
+      </div>
 
-            {/* Quick Amount Pills */}
-            <div className="grid grid-cols-4 gap-1.5 pt-1">
-              {isBuy
-                ? [
-                    { label: '0.001', val: '0.001' },
-                    { label: '0.005', val: '0.005' },
-                    { label: '0.01', val: '0.01' },
-                    { label: '0.05', val: '0.05' },
-                  ].map((c) => (
-                    <button
-                      key={c.label}
-                      type="button"
-                      onClick={() => setAmount(c.val)}
-                      className="py-1 rounded bg-black hover:bg-white text-zinc-300 hover:text-black border border-zinc-700 hover:border-white text-[10px] sm:text-xs font-black transition-all shadow-[1px_1px_0px_0px_#000000] cursor-pointer"
-                    >
-                      {c.label} ETH
-                    </button>
-                  ))
-                : [
-                    { label: '25%', pct: 0.25 },
-                    { label: '50%', pct: 0.5 },
-                    { label: '75%', pct: 0.75 },
-                    { label: '100%', pct: 1.0 },
-                  ].map((c) => (
-                    <button
-                      key={c.label}
-                      type="button"
-                      onClick={() => {
-                        const raw = tokenBalanceNum * c.pct
-                        setAmount(raw >= 1 ? Math.floor(raw).toString() : raw.toFixed(2))
-                      }}
-                      className="py-1 rounded bg-black hover:bg-rose-600 text-zinc-300 hover:text-white border border-zinc-700 hover:border-white text-[10px] sm:text-xs font-black transition-all shadow-[1px_1px_0px_0px_#000000] cursor-pointer"
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-            </div>
-          </div>
+      {/* Breakdown Details */}
+      <div className="bg-black border-2 border-zinc-800 rounded-lg p-3 flex flex-col gap-1.5 text-xs text-zinc-400">
+        <div className="flex justify-between">
+          <span>MIN. RECEIVED ({slippage}% SLIP):</span>
+          <span className="text-white font-bold">
+            {minReceived > 0
+              ? isBuy
+                ? `${minReceived.toLocaleString('en-US', { maximumFractionDigits: 2 })} $${token.symbol}`
+                : `${minReceived.toFixed(6)} ETH`
+              : '—'}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span>CREATOR TAX:</span>
+          <span className="font-bold text-theme-light">{(token.creatorTaxBps / 100).toFixed(1)}%</span>
+        </div>
+        <div className="flex justify-between">
+          <span>EXECUTION ROUTE:</span>
+          <span className={`font-bold ${isGraduated ? 'text-amber-400' : 'text-zinc-300'}`}>
+            {isGraduated ? 'UNISWAP V4 (DEX ROUTER)' : 'PONS V2 BONDING CURVE'}
+          </span>
+        </div>
+      </div>
 
-          {/* Output Preview */}
-          <div className="bg-[#121519] border-2 border-zinc-700 rounded-lg p-4 flex flex-col gap-2 shadow-[3px_3px_0px_0px_#000000]">
-            <div className="flex items-center justify-between text-xs text-zinc-400">
-              <span className="font-black uppercase">{isBuy ? '// YOU_RECEIVE' : '// YOU_RECEIVE (ETH)'}</span>
-              <span className="text-[10px] text-zinc-500 font-bold uppercase">EST. OUTPUT</span>
-            </div>
+      {/* Action Button */}
+      {!authenticated || !address ? (
+        <Button
+          variant="primary"
+          onClick={async () => {
+            setLoggingIn(true)
+            await initOAuth({ provider: 'twitter' })
+          }}
+          loading={loggingIn}
+          className="w-full py-3.5 text-xs font-black uppercase"
+        >
+          CONNECT WALLET TO SWAP
+        </Button>
+      ) : !isBuy && needsApproval ? (
+        <Button
+          variant="primary"
+          onClick={handleApprove}
+          loading={approving}
+          disabled={approving || swapping}
+          className="w-full py-3.5 text-xs font-black uppercase"
+        >
+          {approving ? 'APPROVING TOKEN...' : `APPROVE $${token.symbol} ACCESS`}
+        </Button>
+      ) : (
+        <Button
+          variant={isBuy ? 'primary' : 'danger'}
+          onClick={handleSwap}
+          disabled={!hasSufficientBalance || swapping || approving}
+          loading={swapping}
+          className="w-full py-3.5 text-xs font-black uppercase"
+        >
+          {swapping
+            ? 'SWAPPING ON DEX...'
+            : !hasSufficientBalance
+            ? 'INSUFFICIENT BALANCE'
+            : isBuy
+            ? isGraduated
+              ? `SWAP ETH → $${token.symbol}`
+              : `BUY $${token.symbol} ON CURVE`
+            : isGraduated
+            ? `SWAP $${token.symbol} → ETH`
+            : `SELL $${token.symbol} TO CURVE`}
+        </Button>
+      )}
 
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xl sm:text-2xl font-black text-theme-light truncate">
-                {estimatedOutput > 0
-                  ? isBuy
-                    ? estimatedOutput.toLocaleString('en-US', { maximumFractionDigits: 2 })
-                    : estimatedOutput.toFixed(6)
-                  : '0.00'}
-              </span>
-              <span className="text-xs font-black text-white bg-black px-3 py-1.5 rounded border border-zinc-700 flex-shrink-0">
-                {isBuy ? `$${token.symbol}` : 'ETH'}
-              </span>
-            </div>
-          </div>
-
-          {/* Breakdown Details */}
-          <div className="bg-black border-2 border-zinc-800 rounded-lg p-3 flex flex-col gap-1.5 text-xs text-zinc-400">
-            <div className="flex justify-between">
-              <span>MIN. RECEIVED ({slippage}% SLIP):</span>
-              <span className="text-white font-bold">
-                {minReceived > 0
-                  ? isBuy
-                    ? `${minReceived.toLocaleString('en-US', { maximumFractionDigits: 2 })} $${token.symbol}`
-                    : `${minReceived.toFixed(6)} ETH`
-                  : '—'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span>CREATOR TAX:</span>
-              <span className="font-bold text-theme-light">{(token.creatorTaxBps / 100).toFixed(1)}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span>EXECUTION ROUTE:</span>
-              <span className="text-zinc-300 font-bold">PONS V2 BONDING CURVE</span>
-            </div>
-          </div>
-
-          {/* Action Button */}
-          {!authenticated || !address ? (
-            <Button
-              variant="primary"
-              onClick={async () => {
-                setLoggingIn(true)
-                await initOAuth({ provider: 'twitter' })
-              }}
-              loading={loggingIn}
-              className="w-full py-3.5 text-xs font-black uppercase"
-            >
-              CONNECT WALLET TO SWAP
-            </Button>
-          ) : !isBuy && needsApproval ? (
-            <Button
-              variant="primary"
-              onClick={handleApprove}
-              loading={approving}
-              disabled={approving || swapping}
-              className="w-full py-3.5 text-xs font-black uppercase"
-            >
-              {approving ? 'APPROVING TOKEN...' : `APPROVE $${token.symbol} ACCESS`}
-            </Button>
-          ) : (
-            <Button
-              variant={isBuy ? 'primary' : 'danger'}
-              onClick={handleSwap}
-              disabled={!hasSufficientBalance || swapping || approving}
-              loading={swapping}
-              className="w-full py-3.5 text-xs font-black uppercase"
-            >
-              {swapping
-                ? 'SWAPPING ON CURVE...'
-                : !hasSufficientBalance
-                ? 'INSUFFICIENT BALANCE'
-                : isBuy
-                ? `BUY $${token.symbol} ON CURVE`
-                : `SELL $${token.symbol} TO CURVE`}
-            </Button>
-          )}
-        </>
+      {/* Quick External DEX links */}
+      {isGraduated && (
+        <div className="grid grid-cols-3 gap-1.5 pt-1">
+          <a
+            href={`https://dexscreener.com/robinhood/${token.tokenAddress}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="py-1.5 bg-[#121519] hover:bg-white text-zinc-300 hover:text-black border border-zinc-700 hover:border-white text-[10px] font-black uppercase text-center rounded transition-all"
+          >
+            DEXSCREENER ↗
+          </a>
+          <a
+            href={`https://gmgn.ai/robinhood/token/${token.tokenAddress}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="py-1.5 bg-[#121519] hover:bg-amber-400 text-zinc-300 hover:text-black border border-zinc-700 hover:border-amber-400 text-[10px] font-black uppercase text-center rounded transition-all"
+          >
+            GMGN.AI ↗
+          </a>
+          <a
+            href={`https://robinhoodchain.blockscout.com/token/${token.tokenAddress}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="py-1.5 bg-[#121519] hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-700 text-[10px] font-bold uppercase text-center rounded transition-all"
+          >
+            EXPLORER ↗
+          </a>
+        </div>
       )}
     </div>
   )
