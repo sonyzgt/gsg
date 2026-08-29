@@ -63,7 +63,7 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
   if (!user) {
     return {
       success: false,
-      message: `Hey @${payload.authorHandle}, your Twitter account is not registered yet! Link your wallet at https://ponscore.app/bot to launch tokens.`,
+      message: `@${payload.authorHandle} Your Twitter account is not registered. Link your wallet at https://ponscore.app/bot to launch tokens.`,
     }
   }
 
@@ -71,7 +71,7 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
   if (!parsed) {
     return {
       success: false,
-      message: `Hey @${payload.authorHandle}, invalid launch format! Use: "@ponscorebot launch $TICKER Name Description" and attach an image.`,
+      message: `@${payload.authorHandle} Invalid launch format. Use: @ponscorebot launch $TICKER Name Description and attach an image.`,
     }
   }
 
@@ -87,7 +87,7 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
   if (balance < requiredBalance) {
     return {
       success: false,
-      message: `Hey @${payload.authorHandle}, your deposit wallet (${user.walletAddress.slice(0, 6)}...${user.walletAddress.slice(-4)}) has insufficient ETH (${formatEther(balance)} ETH). Top up at least 0.001 ETH at https://ponscore.app/bot`,
+      message: `@${payload.authorHandle} Your deposit wallet (${user.walletAddress.slice(0, 6)}...${user.walletAddress.slice(-4)}) has insufficient ETH (${formatEther(balance)} ETH). Top up at least 0.001 ETH at https://ponscore.app/bot`,
     }
   }
 
@@ -160,7 +160,7 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
   user.totalLaunches = (user.totalLaunches || 0) + 1
   await saveBotUsers(users)
 
-  const successMessage = `🚀 $${parsed.symbol} is LIVE on Robinhood Chain!\n\nToken: ${deployedTokenCa || 'Success'}\nCreator: @${payload.authorHandle}\nTrade: https://ponscore.app/token/${deployedTokenCa}\nExplorer: https://robinhoodchain.blockscout.com/tx/${txHash}`
+  const successMessage = `$${parsed.symbol} is live on Robinhood Chain.\n\nToken: ${deployedTokenCa || 'Success'}\nCreator: @${payload.authorHandle}\nTrade: https://ponscore.app/token/${deployedTokenCa}\nExplorer: https://robinhoodchain.blockscout.com/tx/${txHash}`
 
   return {
     success: true,
