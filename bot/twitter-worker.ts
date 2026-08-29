@@ -32,17 +32,14 @@ export interface ParsedLaunchCommand {
 }
 
 export function parseTweetLaunchCommand(text: string, defaultImageUrl = '', authorHandle = '', tweetId = ''): ParsedLaunchCommand | null {
-  // Normalize text: remove mentions
   const clean = text.replace(/@\w+/g, '').trim()
 
-  // Match $TICKER or "launch token $TICKER" or "launch $TICKER" or "launch token TICKER"
   const tickerMatch = clean.match(/\$([A-Za-z0-9_]{2,15})/i) || 
                       clean.match(/(?:launch\s+token|launch|deploy\s+token|deploy)\s+\$?([A-Za-z0-9_]{2,15})/i)
   
   if (!tickerMatch) return null
   const symbol = tickerMatch[1].toUpperCase()
 
-  // Extract custom name if user wrote extra words after ticker
   let remainingText = clean
     .replace(/^(?:launch\s+token|launch|deploy\s+token|deploy)\s+/i, '')
     .replace(tickerMatch[0], '')
@@ -122,7 +119,6 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
     transport: http('https://robinhood-rpc.publicnode.com'),
   })
 
-  // Use the image or ipfs URI
   const metadataUri = parsed.imageUrl
   console.log(`[Bot Worker] Launching $${parsed.symbol} (${parsed.name}) for @${payload.authorHandle} on Robinhood Chain...`)
 
@@ -188,7 +184,7 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
 }
 
 // -------------------------------------------------------------
-// TWITTER API V2 OAUTH 1.0A & POLLING LISTENER
+// TWITTER API V2 OAUTH 1.0A & MENTIONS POLLING
 // -------------------------------------------------------------
 
 function generateOAuthHeader(method: string, url: string, params: Record<string, string> = {}) {
@@ -209,19 +205,17 @@ function generateOAuthHeader(method: string, url: string, params: Record<string,
 
   const sortedKeys = Object.keys(oauthParams).sort()
   const paramString = sortedKeys.map(k => `${encodeURIComponent(k)}=${encodeURIComponent(oauthParams[k])}`).join('&')
-  const baseString = `${method.toUpperCase()}&${encodeURIComponent(url)}&${encodeURIComponent(paramString)}`
+  const baseString = `${method.toUpperCase()}&${encodeURIComponent(url.split('?')[0])}&${encodeURIComponent(paramString)}`
   const signingKey = `${encodeURIComponent(apiSecret)}&${encodeURIComponent(tokenSecret)}`
   const signature = crypto.createHmac('sha1', signingKey).update(baseString).digest('base64')
 
   oauthParams['oauth_signature'] = signature
 
-  const authHeader = 'OAuth ' + Object.keys(oauthParams)
+  return 'OAuth ' + Object.keys(oauthParams)
     .filter(k => k.startsWith('oauth_'))
     .sort()
     .map(k => `${encodeURIComponent(k)}="${encodeURIComponent(oauthParams[k])}"`)
     .join(', ')
-
-  return authHeader
 }
 
 async function postTwitterReply(replyText: string, inReplyToTweetId: string) {
@@ -249,11 +243,31 @@ async function postTwitterReply(replyText: string, inReplyToTweetId: string) {
   }
 }
 
-async function pollMentions() {
-  const bearerToken = process.env.TWITTER_BEARER_TOKEN
-  const botHandle = process.env.TWITTER_BOT_HANDLE || 'agent_ponscore'
+let cachedBotUserId = ''
 
-  if (!bearerToken) {
+async function getBotUserId(botHandle: string): Promise<string> {
+  if (cachedBotUserId) return cachedBotUserId
+  const url = `https://api.twitter.com/2/users/by/username/${botHandle}`
+  const bearerToken = process.env.TWITTER_BEARER_TOKEN
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${bearerToken}` },
+  })
+  if (res.ok) {
+    const data = await res.json()
+    if (data.data?.id) {
+      cachedBotUserId = data.data.id
+      return cachedBotUserId
+    }
+  }
+  return ''
+}
+
+export async function pollMentions() {
+  const botHandle = (process.env.TWITTER_BOT_HANDLE || 'agent_ponscore').replace('@', '')
+  const bearerToken = process.env.TWITTER_BEARER_TOKEN
+
+  if (!bearerToken && !process.env.TWITTER_API_KEY) {
+    console.log('[Twitter Worker] No Twitter credentials configured in .env.local')
     return
   }
 
@@ -264,25 +278,41 @@ async function pollMentions() {
       state = JSON.parse(raw)
     } catch { /* ignore */ }
 
-    const query = encodeURIComponent(`@${botHandle} -is:retweet`)
-    let url = `https://api.twitter.com/2/tweets/search/recent?query=${query}&expansions=attachments.media_keys,author_id&media.fields=url,preview_image_url&user.fields=username`
+    let botId = await getBotUserId(botHandle)
+    let url = ''
+
+    if (botId) {
+      // 1. Preferred: User Mentions Timeline API v2
+      url = `https://api.twitter.com/2/users/${botId}/mentions?expansions=attachments.media_keys,author_id&media.fields=url,preview_image_url&user.fields=username`
+    } else {
+      // 2. Fallback: Search Recent Tweets
+      const query = encodeURIComponent(`@${botHandle} -is:retweet`)
+      url = `https://api.twitter.com/2/tweets/search/recent?query=${query}&expansions=attachments.media_keys,author_id&media.fields=url,preview_image_url&user.fields=username`
+    }
+
     if (state.lastSeenId) {
       url += `&since_id=${state.lastSeenId}`
     }
 
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${bearerToken}` },
-    })
+    const headers: Record<string, string> = {}
+    if (bearerToken) {
+      headers['Authorization'] = `Bearer ${bearerToken}`
+    } else {
+      headers['Authorization'] = generateOAuthHeader('GET', url)
+    }
+
+    const res = await fetch(url, { headers })
 
     if (!res.ok) {
-      if (res.status === 429) {
-        console.log('[Twitter Worker] Rate limit reached. Waiting for next cycle...')
-      }
+      const errText = await res.text()
+      console.error('[Twitter Worker Polling Status]:', res.status, errText)
       return
     }
 
     const data = await res.json()
-    if (!data.data || data.data.length === 0) return
+    if (!data.data || data.data.length === 0) {
+      return
+    }
 
     const usersMap = new Map<string, string>()
     if (data.includes?.users) {
@@ -329,12 +359,12 @@ async function pollMentions() {
       await writeFile(STATE_FILE, JSON.stringify(state, null, 2))
     }
   } catch (err) {
-    console.error('[Twitter Worker Polling Error]:', err)
+    console.error('[Twitter Worker Error]:', err)
   }
 }
 
 if (require.main === module) {
-  console.log('[Twitter Bot Worker] Started autonomous listener on Robinhood Chain...')
+  console.log('[Twitter Bot Worker] Started autonomous listener for @' + (process.env.TWITTER_BOT_HANDLE || 'agent_ponscore'))
   pollMentions()
   setInterval(pollMentions, 15000)
 }
