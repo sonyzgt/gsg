@@ -254,10 +254,11 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
     return () => clearTimeout(t)
   }, [tokenInfo?.address, address, fetchTokenBalance])
 
-  // â”€â”€ Helper: Determine Approval Spender â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Helper: Determine Approval Spender ────────────────────────────────────────
   const getSpender = useCallback(() => {
     if (!tokenInfo) return SWAP_ROUTER
-    if (tokenInfo.dexType === 'pons-v2') {
+    const isCurveActive = tokenInfo.dexType === 'pons-v2' && !tokenInfo.graduated && (tokenInfo.phase === 0 || tokenInfo.phase === undefined)
+    if (isCurveActive) {
       const targetCurve = tokenInfo.curveAddress || tokenInfo.poolAddress
       if (targetCurve && isAddress(targetCurve)) return getAddress(targetCurve)
     }
@@ -393,11 +394,11 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
         }
       }
 
-      const isPonsV2 = tokenInfo.dexType === 'pons-v2' || tokenInfo.source === 'onchain_reserves'
+      const isPonsCurveActive = (tokenInfo.dexType === 'pons-v2' || tokenInfo.source === 'onchain_reserves') && !tokenInfo.graduated && (tokenInfo.phase === 0 || tokenInfo.phase === undefined)
 
       let txHash = ''
 
-      if (isPonsV2) {
+      if (isPonsCurveActive) {
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // â”€â”€ ROUTE 1: PONS V2 BONDING CURVE â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•

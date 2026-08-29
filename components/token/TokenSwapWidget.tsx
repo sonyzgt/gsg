@@ -32,6 +32,51 @@ interface TokenSwapWidgetProps {
   onSwapSuccess?: () => void
 }
 
+const SWAP_ROUTER = '0x1e406484F1F204b23cE84B9901C0171a738fd406' as `0x${string}`
+const WETH = '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73' as `0x${string}`
+
+const SWAP_ABI = [
+  {
+    name: 'exactInputSingle',
+    type: 'function',
+    stateMutability: 'payable',
+    inputs: [
+      {
+        name: 'params',
+        type: 'tuple',
+        components: [
+          { name: 'tokenIn', type: 'address' },
+          { name: 'tokenOut', type: 'address' },
+          { name: 'fee', type: 'uint24' },
+          { name: 'recipient', type: 'address' },
+          { name: 'deadline', type: 'uint256' },
+          { name: 'amountIn', type: 'uint256' },
+          { name: 'amountOutMinimum', type: 'uint256' },
+          { name: 'sqrtPriceLimitX96', type: 'uint160' },
+        ],
+      },
+    ],
+    outputs: [{ name: 'amountOut', type: 'uint256' }],
+  },
+  {
+    name: 'unwrapWETH9',
+    type: 'function',
+    stateMutability: 'payable',
+    inputs: [
+      { name: 'amountMinimum', type: 'uint256' },
+      { name: 'recipient', type: 'address' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'multicall',
+    type: 'function',
+    stateMutability: 'payable',
+    inputs: [{ name: 'data', type: 'bytes[]' }],
+    outputs: [{ name: 'results', type: 'bytes[]' }],
+  },
+] as const
+
 export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidgetProps) {
   const { user, authenticated } = usePrivy()
   const { address, balance, embeddedWallet, refetchBalance } = useWallet()
@@ -57,8 +102,10 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
   const [swapping, setSwapping] = useState(false)
 
   const isBuy = mode === 'BUY'
-  const isCurve = token.phase === 0 || !token.graduated
+  const isGraduated = token.graduated || token.phase === 2
+  const isCurve = !isGraduated && (token.phase === 0 || token.phase === undefined)
   const curveAddress = token.curveAddress
+  const targetSpender = isCurve ? curveAddress : SWAP_ROUTER
 
   // Fetch token balance
   const fetchTokenBal = useCallback(async () => {
@@ -96,7 +143,7 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
         chain: robinhoodChain,
         transport: http('https://robinhood-rpc.publicnode.com'),
       })
-      const spender = curveAddress
+      const spender = targetSpender
       const allowance = await pubClient.readContract({
         address: token.tokenAddress,
         abi: erc20Abi,
@@ -113,7 +160,7 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
     } catch {
       setNeedsApproval(false)
     }
-  }, [isBuy, address, token.tokenAddress, curveAddress, amount])
+  }, [isBuy, address, token.tokenAddress, targetSpender, amount])
 
   useEffect(() => {
     fetchTokenBal()
@@ -128,20 +175,20 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
   const tokenBalanceNum = parseFloat(formatUnits(tokenBalanceRaw, 18))
   const amountNum = parseFloat(amount) || 0
 
-  // Bonding curve estimate output calculation
+  // Bonding curve & DEX estimate output calculation
   const estimatedOutput = useMemo(() => {
     if (amountNum <= 0) return 0
-    const priceNative = token.priceNative > 0 ? token.priceNative : 0.0000000025
+    const priceNative = token.priceNative > 0 ? token.priceNative : (isGraduated ? 0.000000007 : 0.0000000025)
     if (isBuy) {
-      // ETH in -> Tokens out (accounting for curve tax & fee ~2%)
-      const feeDeduction = amountNum * 0.98
+      // ETH in -> Tokens out (accounting for fee ~1-2%)
+      const feeDeduction = amountNum * 0.985
       return feeDeduction / priceNative
     } else {
-      // Tokens in -> ETH out (accounting for curve tax & fee ~2%)
+      // Tokens in -> ETH out (accounting for fee ~1-2%)
       const grossEth = amountNum * priceNative
-      return grossEth * 0.98
+      return grossEth * 0.985
     }
-  }, [amountNum, isBuy, token.priceNative])
+  }, [amountNum, isBuy, token.priceNative, isGraduated])
 
   const minReceived = useMemo(() => {
     return estimatedOutput * (1 - slippage / 100)
@@ -168,7 +215,7 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
       const calldata = encodeFunctionData({
         abi: erc20Abi,
         functionName: 'approve',
-        args: [curveAddress, maxUint256],
+        args: [targetSpender, maxUint256],
       })
 
       toast(`Approving $${token.symbol} access in wallet...`)
@@ -210,41 +257,112 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
       const [account] = await walletClient.getAddresses()
       const userAddr = getAddress(address)
 
-      if (isBuy) {
-        toast(`Buying $${token.symbol} on Robinhood Chain...`)
-        const quoteIn = parseEther(amount)
-        const minTokensOut = 0n // Slippage tolerance
+      if (isCurve) {
+        // ── ROUTE 1: ACTIVE PONS V2 BONDING CURVE ──
+        if (isBuy) {
+          toast(`Buying $${token.symbol} on Bonding Curve...`)
+          const quoteIn = parseEther(amount)
+          const minTokensOut = 0n // Slippage tolerance
 
-        const calldata = encodeFunctionData({
-          abi: PONS_CURVE_ABI,
-          functionName: 'buy',
-          args: [quoteIn, minTokensOut, userAddr],
-        })
+          const calldata = encodeFunctionData({
+            abi: PONS_CURVE_ABI,
+            functionName: 'buy',
+            args: [quoteIn, minTokensOut, userAddr],
+          })
 
-        await walletClient.sendTransaction({
-          account,
-          to: curveAddress,
-          value: quoteIn,
-          data: calldata,
-          gas: 300000n,
-        })
+          await walletClient.sendTransaction({
+            account,
+            to: curveAddress,
+            value: quoteIn,
+            data: calldata,
+            gas: 300000n,
+          })
+        } else {
+          toast(`Selling $${token.symbol} to Bonding Curve...`)
+          const tokensIn = parseUnits(amount, 18)
+          const minQuoteOut = 0n
+
+          const calldata = encodeFunctionData({
+            abi: PONS_CURVE_ABI,
+            functionName: 'sell',
+            args: [tokensIn, minQuoteOut, userAddr],
+          })
+
+          await walletClient.sendTransaction({
+            account,
+            to: curveAddress,
+            data: calldata,
+            gas: 300000n,
+          })
+        }
       } else {
-        toast(`Selling $${token.symbol} for ETH...`)
-        const tokensIn = parseUnits(amount, 18)
-        const minQuoteOut = 0n
+        // ── ROUTE 2: UNISWAP / SUSHISWAP V3 ROUTER (GRADUATED TOKEN) ──
+        const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200)
+        const fee = token.poolFee || 10000
+        const tokenAddr = getAddress(token.tokenAddress)
 
-        const calldata = encodeFunctionData({
-          abi: PONS_CURVE_ABI,
-          functionName: 'sell',
-          args: [tokensIn, minQuoteOut, userAddr],
-        })
+        if (isBuy) {
+          toast(`Buying $${token.symbol} on Uniswap v4 / DEX...`)
+          const amountInWei = parseEther(amount)
+          const calldata = encodeFunctionData({
+            abi: SWAP_ABI,
+            functionName: 'exactInputSingle',
+            args: [{
+              tokenIn: WETH,
+              tokenOut: tokenAddr,
+              fee,
+              recipient: userAddr,
+              deadline,
+              amountIn: amountInWei,
+              amountOutMinimum: 0n,
+              sqrtPriceLimitX96: 0n,
+            }],
+          })
 
-        await walletClient.sendTransaction({
-          account,
-          to: curveAddress,
-          data: calldata,
-          gas: 300000n,
-        })
+          await walletClient.sendTransaction({
+            account,
+            to: SWAP_ROUTER,
+            value: amountInWei,
+            data: calldata,
+            gas: 400000n,
+          })
+        } else {
+          toast(`Selling $${token.symbol} on Uniswap v4 / DEX...`)
+          const tokensIn = parseUnits(amount, 18)
+          const swapCall = encodeFunctionData({
+            abi: SWAP_ABI,
+            functionName: 'exactInputSingle',
+            args: [{
+              tokenIn: tokenAddr,
+              tokenOut: WETH,
+              fee,
+              recipient: SWAP_ROUTER,
+              deadline,
+              amountIn: tokensIn,
+              amountOutMinimum: 0n,
+              sqrtPriceLimitX96: 0n,
+            }],
+          })
+
+          const unwrapCall = encodeFunctionData({
+            abi: SWAP_ABI,
+            functionName: 'unwrapWETH9',
+            args: [0n, userAddr],
+          })
+
+          const calldata = encodeFunctionData({
+            abi: SWAP_ABI,
+            functionName: 'multicall',
+            args: [[swapCall, unwrapCall]],
+          })
+
+          await walletClient.sendTransaction({
+            account,
+            to: SWAP_ROUTER,
+            data: calldata,
+            gas: 450000n,
+          })
+        }
       }
 
       toast.success(`Swap ${isBuy ? `ETH → $${token.symbol}` : `$${token.symbol} → ETH`} successful!`)
@@ -483,8 +601,10 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
           <span className="font-bold text-theme-light">{(token.creatorTaxBps / 100).toFixed(1)}%</span>
         </div>
         <div className="flex justify-between">
-          <span>CURVE EXECUTION:</span>
-          <span className="text-zinc-300">PONS V2 BONDING CURVE</span>
+          <span>EXECUTION ROUTE:</span>
+          <span className={`font-bold ${isGraduated ? 'text-amber-400' : 'text-zinc-300'}`}>
+            {isGraduated ? 'UNISWAP V4 (DEX ROUTER)' : 'PONS V2 BONDING CURVE'}
+          </span>
         </div>
       </div>
 

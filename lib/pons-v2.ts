@@ -496,8 +496,19 @@ export async function getPonsTokenInfo(tokenAddress: string): Promise<PonsV2Toke
       }
     } catch { /* ignore */ }
 
+    // When token has graduated to Uniswap v4, bonding curve reserves are swept to pool
+    if (graduated || phase === 2) {
+      const threshWei = BigInt(graduationThreshold || '4200000000000000000')
+      // Accurate graduation price ~ (threshold ETH + initial virtual quote) / 1 Billion tokens
+      const finalGradPrice = (Number(threshWei) + 1.68e18) / 1e9 / 1e18
+      if (priceNative === 0 || priceNative < 0.0000000001) {
+        priceNative = finalGradPrice > 0 ? finalGradPrice : 0.000000007
+        priceUsd = priceNative * ethPriceUsd
+      }
+    }
+
     if (priceNative === 0) {
-      priceNative = 0.000000001
+      priceNative = 0.00000000168
       priceUsd = priceNative * ethPriceUsd
     }
 

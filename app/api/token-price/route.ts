@@ -82,6 +82,7 @@ export interface TokenPrice {
   isUsdgPaired: boolean
   source: string
   phase?: number
+  graduated?: boolean
   curveAddress?: string
   pairToken?: string
   tickSpacing?: number
@@ -149,16 +150,35 @@ export async function POST(req: NextRequest) {
     const ponsInfo = await getPonsTokenInfo(ca)
     if (ponsInfo) {
       if (!name) name = symbol || 'Pons Token'
+
+      // If graduated, check if DexScreener has active pool price
+      let livePriceNative = ponsInfo.priceNative
+      let livePriceUsd = ponsInfo.priceUsd
+      if (ponsInfo.graduated || ponsInfo.phase === 2) {
+        try {
+          const dxRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`, { cache: 'no-store' })
+          if (dxRes.ok) {
+            const dxData = await dxRes.json()
+            const pair = dxData?.pairs?.find((p: { chainId?: string }) => p.chainId === 'robinhood') || dxData?.pairs?.[0]
+            if (pair && parseFloat(pair.priceNative) > 0) {
+              livePriceNative = parseFloat(pair.priceNative)
+              livePriceUsd = parseFloat(pair.priceUsd) || livePriceNative * ethPriceUsd
+            }
+          }
+        } catch { /* continue */ }
+      }
+
       return NextResponse.json({
         source: 'onchain',
         dexType: 'pons-v2',
         phase: ponsInfo.phase,
+        graduated: ponsInfo.graduated,
         tokenAddress: ca,
         curveAddress: ponsInfo.curveAddress,
         creatorAddress: ponsInfo.creatorAddress,
         pairToken: ponsInfo.pairToken,
-        poolFee: ponsInfo.poolFee,
-        tickSpacing: ponsInfo.tickSpacing,
+        poolFee: ponsInfo.poolFee || 10000,
+        tickSpacing: ponsInfo.tickSpacing || 200,
         poolAddress: ponsInfo.poolAddress,
         poolId: ponsInfo.poolId,
         poolKey: ponsInfo.poolKey,
@@ -170,8 +190,8 @@ export async function POST(req: NextRequest) {
         symbol: symbol || 'TOKEN',
         name: name || symbol || 'Token Target',
         decimals,
-        priceNative: ponsInfo.priceNative,
-        priceUsd: ponsInfo.priceUsd,
+        priceNative: livePriceNative,
+        priceUsd: livePriceUsd,
         ethPriceUsd,
       })
     }
