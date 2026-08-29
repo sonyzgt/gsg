@@ -271,7 +271,13 @@ export default function LaunchpadExplorer({
           ) : (() => {
             const featuredToken = topMcapTokens[deckOffset % topMcapTokens.length]
             const mcapUsd = featuredToken.priceUsd * 1000000000
-            const mcapStr = mcapUsd >= 1000 ? `$${(mcapUsd / 1000).toFixed(1)}k` : `$${mcapUsd.toFixed(1)}`
+            const mcapStr =
+              mcapUsd >= 1000000
+                ? `$${(mcapUsd / 1000000).toFixed(2)}M`
+                : mcapUsd >= 1000
+                ? `$${(mcapUsd / 1000).toFixed(1)}k`
+                : `$${mcapUsd.toFixed(2)}`
+            const progressPct = (featuredToken.progress * 100).toFixed(1)
 
             return (
               <div
@@ -311,12 +317,12 @@ export default function LaunchpadExplorer({
                     <div className="mt-1 flex flex-col gap-0.5">
                       <div className="flex justify-between text-[9px] font-mono text-zinc-400">
                         <span>CURVE PROGRESS</span>
-                        <span className="text-white font-bold">{featuredToken.progress.toFixed(1)}%</span>
+                        <span className="text-white font-bold">{progressPct}%</span>
                       </div>
                       <div className="w-full h-1.5 bg-black border border-zinc-700 rounded-none overflow-hidden p-[0.5px]">
                         <div
                           className="h-full bg-[var(--theme-color)] transition-all duration-500"
-                          style={{ width: `${Math.min(100, Math.max(2, featuredToken.progress))}%` }}
+                          style={{ width: `${Math.min(100, Math.max(2, parseFloat(progressPct)))}%` }}
                         />
                       </div>
                     </div>
