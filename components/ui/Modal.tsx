@@ -24,29 +24,37 @@ export default function Modal({ open, onClose, title, children }: ModalProps) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-12 sm:pt-16 md:pt-20 p-3 sm:p-4 overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/85 backdrop-blur-xl transition-opacity"
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
-      {/* Panel */}
-      <div className="relative w-full max-w-md max-h-[92vh] flex flex-col rounded-3xl liquid-glass shadow-[0_30px_80px_rgba(0,0,0,0.95)] p-5 sm:p-6 overflow-hidden animate-fadeIn">
-        {/* Specular accent top line */}
-        <div
-          className="absolute top-0 left-0 right-0 h-[2px] flex-shrink-0 transition-all duration-500"
-          style={{ background: `linear-gradient(to right, transparent, ${theme.color}, transparent)` }}
-        />
-        
-        <div className="flex items-center justify-between mb-4 flex-shrink-0">
-          <h2 className="text-base sm:text-lg font-extrabold tracking-tight text-white drop-shadow-sm">{title}</h2>
+      {/* Brutalist Modal Panel */}
+      <div
+        style={{
+          boxShadow: `6px 6px 0px 0px ${theme.color}`,
+        }}
+        className="relative w-full max-w-md max-h-[85vh] flex flex-col rounded-xl bg-[#0e1115] border-2 border-white p-5 sm:p-6 overflow-hidden animate-fadeIn select-none"
+      >
+        {/* Top Header Bar */}
+        <div className="flex items-center justify-between pb-3 mb-4 border-b-2 border-zinc-800 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <span
+              className="w-2.5 h-2.5 rounded-none border border-black shadow-[1px_1px_0px_0px_#ffffff]"
+              style={{ backgroundColor: theme.color }}
+            />
+            <h2 className="text-sm sm:text-base font-black font-mono tracking-tight uppercase text-white">
+              {title}
+            </h2>
+          </div>
           <button
             onClick={onClose}
-            className="text-zinc-400 hover:text-white transition-colors p-1.5 rounded-xl liquid-pill cursor-pointer"
+            className="text-zinc-400 hover:text-white p-1 rounded-md border border-zinc-700 bg-zinc-900 hover:border-white transition-all cursor-pointer shadow-[2px_2px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
             aria-label="Close"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>

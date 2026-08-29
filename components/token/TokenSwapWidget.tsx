@@ -263,26 +263,29 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
     } finally {
       setSwapping(false)
     }
-  }
-
-  return (
-    <div className="flex flex-col liquid-glass rounded-3xl p-5 sm:p-6 shadow-2xl gap-4">
+  }  return (
+    <div
+      style={{
+        boxShadow: `5px 5px 0px 0px ${isBuy ? theme.color : '#f43f5e'}`,
+      }}
+      className="flex flex-col bg-[#0e1115] border-2 border-white rounded-xl p-5 sm:p-6 gap-4 font-mono select-none"
+    >
       {/* Buy / Sell Tabs */}
       <div className="flex items-center justify-between gap-3">
-        <div className="grid grid-cols-2 bg-black/60 p-1 rounded-2xl border border-white/[0.06] w-full">
+        <div className="grid grid-cols-2 bg-black p-1 rounded-lg border-2 border-zinc-700 w-full shadow-[2px_2px_0px_0px_#000000]">
           <button
             type="button"
             onClick={() => {
               setMode('BUY')
               setAmount('')
             }}
-            className={`py-2 text-xs sm:text-sm font-extrabold rounded-xl transition-all cursor-pointer ${
+            className={`py-2 text-xs font-black uppercase rounded transition-all cursor-pointer ${
               isBuy
-                ? 'liquid-pill-active text-white'
+                ? 'bg-[var(--theme-color)] text-black border border-black shadow-[2px_2px_0px_0px_#ffffff]'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
-            Buy ${token.symbol}
+            BUY ${token.symbol}
           </button>
           <button
             type="button"
@@ -290,13 +293,13 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
               setMode('SELL')
               setAmount('')
             }}
-            className={`py-2 text-xs sm:text-sm font-extrabold rounded-xl transition-all cursor-pointer ${
+            className={`py-2 text-xs font-black uppercase rounded transition-all cursor-pointer ${
               !isBuy
-                ? 'liquid-pill-active text-white'
+                ? 'bg-rose-600 text-white border border-black shadow-[2px_2px_0px_0px_#ffffff]'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
-            Sell ${token.symbol}
+            SELL ${token.symbol}
           </button>
         </div>
 
@@ -304,12 +307,12 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
         <button
           type="button"
           onClick={() => setShowSettings((p) => !p)}
-          className="p-2 rounded-xl bg-black/60 hover:bg-zinc-800 border border-white/[0.08] text-zinc-400 hover:text-white transition-colors text-xs font-mono flex items-center gap-1 flex-shrink-0 cursor-pointer"
+          className="p-2 rounded bg-[#181b20] hover:bg-white text-zinc-400 hover:text-black border-2 border-zinc-700 hover:border-white transition-all text-xs font-black flex items-center gap-1 flex-shrink-0 cursor-pointer shadow-[2px_2px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5"
           title="Slippage Settings"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
           <span>{slippage}%</span>
         </button>
@@ -317,10 +320,10 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
 
       {/* Slippage Settings Drawer */}
       {showSettings && (
-        <div className="bg-black/80 border border-white/[0.08] rounded-2xl p-3 flex flex-col gap-2 animate-fadeIn">
+        <div className="bg-[#121519] border-2 border-zinc-700 rounded-lg p-3 flex flex-col gap-2 animate-fadeIn shadow-[2px_2px_0px_0px_#000000]">
           <div className="flex justify-between items-center text-xs">
-            <span className="font-semibold text-zinc-300">Slippage Tolerance</span>
-            <span className="font-mono text-theme-light font-bold">{slippage}%</span>
+            <span className="font-black uppercase text-zinc-300">// SLIPPAGE_TOLERANCE</span>
+            <span className="text-theme-light font-black">{slippage}%</span>
           </div>
           <div className="grid grid-cols-4 gap-2">
             {[0.5, 1.0, 2.5, 5.0].map((s) => (
@@ -328,10 +331,10 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
                 key={s}
                 type="button"
                 onClick={() => setSlippage(s)}
-                className={`py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                className={`py-1 rounded text-xs font-black uppercase transition-all cursor-pointer border ${
                   slippage === s
-                    ? 'liquid-pill-active text-white'
-                    : 'bg-black/50 text-zinc-400 border border-white/[0.06] hover:text-white'
+                    ? 'bg-[var(--theme-color)] text-black border-black shadow-[2px_2px_0px_0px_#000000]'
+                    : 'bg-black text-zinc-400 border-zinc-700 hover:text-white'
                 }`}
               >
                 {s}%
@@ -342,12 +345,12 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
       )}
 
       {/* Input Box */}
-      <div className="bg-black/60 border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-3 overflow-hidden">
-        <div className="flex items-center justify-between text-xs text-zinc-400 font-mono">
-          <span>You Pay</span>
+      <div className="bg-[#121519] border-2 border-zinc-700 rounded-lg p-4 flex flex-col gap-3 shadow-[3px_3px_0px_0px_#000000]">
+        <div className="flex items-center justify-between text-xs text-zinc-400">
+          <span className="font-black uppercase">// YOU_PAY</span>
           <div className="flex items-center gap-1.5">
             <span>
-              Bal: {isBuy ? `${ethBalanceNum.toFixed(4)} ETH` : `${tokenBalanceNum.toLocaleString()} $${token.symbol}`}
+              BAL: {isBuy ? `${ethBalanceNum.toFixed(4)} ETH` : `${tokenBalanceNum.toLocaleString()} $${token.symbol}`}
             </span>
             <button
               type="button"
@@ -360,9 +363,9 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
                     : tokenBalanceNum.toString()
                 )
               }
-              className="text-theme-light hover:underline font-bold cursor-pointer"
+              className="text-theme-light hover:underline font-black cursor-pointer uppercase"
             >
-              MAX
+              [MAX]
             </button>
           </div>
         </div>
@@ -375,21 +378,18 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="0.0"
-            className="flex-1 w-0 min-w-0 bg-transparent text-2xl sm:text-3xl font-extrabold font-mono text-white placeholder-zinc-700 focus:outline-none"
+            className="flex-1 w-0 min-w-0 bg-transparent text-2xl sm:text-3xl font-black text-white placeholder-zinc-700 focus:outline-none"
           />
 
-          <div className="flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-xl border border-white/[0.08] flex-shrink-0">
+          <div className="flex items-center gap-2 bg-black px-3 py-1.5 rounded border border-zinc-700 flex-shrink-0">
             {isBuy ? (
               <>
-                <SparkleIcon size={20} className="flex-shrink-0" />
-                <span className="text-xs font-bold font-mono text-white">ETH</span>
+                <SparkleIcon size={18} className="flex-shrink-0" />
+                <span className="text-xs font-black text-white">ETH</span>
               </>
             ) : (
               <>
-                <div
-                  style={{ borderColor: `${theme.primary}55` }}
-                  className="w-5 h-5 rounded-full overflow-hidden border flex items-center justify-center bg-black"
-                >
+                <div className="w-5 h-5 rounded-none overflow-hidden border border-white flex items-center justify-center bg-black">
                   <TokenImage
                     src={token.logo}
                     alt={token.symbol}
@@ -398,7 +398,7 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <span className="text-xs font-bold font-mono text-white truncate max-w-[80px]">
+                <span className="text-xs font-black text-white truncate max-w-[80px]">
                   {token.symbol}
                 </span>
               </>
@@ -410,18 +410,18 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
         <div className="grid grid-cols-4 gap-1.5 pt-1">
           {isBuy
             ? [
-                { label: '0.001 ETH', val: '0.001' },
-                { label: '0.005 ETH', val: '0.005' },
-                { label: '0.01 ETH', val: '0.01' },
-                { label: '0.05 ETH', val: '0.05' },
+                { label: '0.001', val: '0.001' },
+                { label: '0.005', val: '0.005' },
+                { label: '0.01', val: '0.01' },
+                { label: '0.05', val: '0.05' },
               ].map((c) => (
                 <button
                   key={c.label}
                   type="button"
                   onClick={() => setAmount(c.val)}
-                  className="py-1 rounded-lg bg-black/40 hover:bg-white/[0.08] border border-white/[0.06] hover:border-theme text-[10px] sm:text-xs font-mono font-bold text-zinc-300 hover:text-white transition-all cursor-pointer"
+                  className="py-1 rounded bg-black hover:bg-white text-zinc-300 hover:text-black border border-zinc-700 hover:border-white text-[10px] sm:text-xs font-black transition-all shadow-[1px_1px_0px_0px_#000000] cursor-pointer"
                 >
-                  {c.label}
+                  {c.label} ETH
                 </button>
               ))
             : [
@@ -437,7 +437,7 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
                     const raw = tokenBalanceNum * c.pct
                     setAmount(raw >= 1 ? Math.floor(raw).toString() : raw.toFixed(2))
                   }}
-                  className="py-1 rounded-lg bg-black/40 hover:bg-rose-950/40 border border-white/[0.06] hover:border-rose-500/30 text-[10px] sm:text-xs font-mono font-bold text-zinc-300 hover:text-rose-300 transition-all cursor-pointer"
+                  className="py-1 rounded bg-black hover:bg-rose-600 text-zinc-300 hover:text-white border border-zinc-700 hover:border-white text-[10px] sm:text-xs font-black transition-all shadow-[1px_1px_0px_0px_#000000] cursor-pointer"
                 >
                   {c.label}
                 </button>
@@ -446,45 +446,45 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
       </div>
 
       {/* Output Preview */}
-      <div className="bg-black/60 border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-2">
+      <div className="bg-[#121519] border-2 border-zinc-700 rounded-lg p-4 flex flex-col gap-2 shadow-[3px_3px_0px_0px_#000000]">
         <div className="flex items-center justify-between text-xs text-zinc-400">
-          <span className="font-semibold">{isBuy ? 'You Receive' : 'You Receive (ETH)'}</span>
-          <span className="font-mono text-[11px]">Est. Output</span>
+          <span className="font-black uppercase">{isBuy ? '// YOU_RECEIVE' : '// YOU_RECEIVE (ETH)'}</span>
+          <span className="text-[10px] text-zinc-500 font-bold uppercase">EST. OUTPUT</span>
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xl sm:text-2xl font-extrabold text-theme-light font-mono truncate">
+          <span className="text-xl sm:text-2xl font-black text-theme-light truncate">
             {estimatedOutput > 0
               ? isBuy
                 ? estimatedOutput.toLocaleString('en-US', { maximumFractionDigits: 2 })
                 : estimatedOutput.toFixed(6)
               : '0.00'}
           </span>
-          <span className="text-xs font-mono font-bold text-zinc-300 bg-black/60 px-3 py-1.5 rounded-xl border border-white/[0.08] flex-shrink-0">
+          <span className="text-xs font-black text-white bg-black px-3 py-1.5 rounded border border-zinc-700 flex-shrink-0">
             {isBuy ? `$${token.symbol}` : 'ETH'}
           </span>
         </div>
       </div>
 
       {/* Breakdown Details */}
-      <div className="bg-black/60 border border-white/[0.06] rounded-2xl p-3.5 flex flex-col gap-1.5 text-xs font-mono text-zinc-400">
+      <div className="bg-black border-2 border-zinc-800 rounded-lg p-3 flex flex-col gap-1.5 text-xs text-zinc-400">
         <div className="flex justify-between">
-          <span>Min. Received ({slippage}% slip)</span>
-          <span className="text-zinc-200 font-bold">
+          <span>MIN. RECEIVED ({slippage}% SLIP):</span>
+          <span className="text-white font-bold">
             {minReceived > 0
               ? isBuy
                 ? `${minReceived.toLocaleString('en-US', { maximumFractionDigits: 2 })} $${token.symbol}`
                 : `${minReceived.toFixed(6)} ETH`
-              : 'â€”'}
+              : '—'}
           </span>
         </div>
         <div className="flex justify-between">
-          <span>Creator Tax</span>
+          <span>CREATOR TAX:</span>
           <span className="font-bold text-theme-light">{(token.creatorTaxBps / 100).toFixed(1)}%</span>
         </div>
         <div className="flex justify-between">
-          <span>Curve Execution</span>
-          <span className="text-zinc-300">Pons v2 Bonding Curve</span>
+          <span>CURVE EXECUTION:</span>
+          <span className="text-zinc-300">PONS V2 BONDING CURVE</span>
         </div>
       </div>
 
@@ -497,17 +497,17 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
             await initOAuth({ provider: 'twitter' })
           }}
           loading={loggingIn}
-          className="w-full py-4 text-sm font-extrabold"
+          className="w-full py-3.5 text-xs font-black uppercase"
         >
-          Log in with X to Swap
+          CONNECT WALLET TO SWAP
         </Button>
       ) : amountNum <= 0 ? (
-        <Button variant="secondary" disabled className="w-full py-4 text-sm">
-          Enter Amount to Swap
+        <Button variant="secondary" disabled className="w-full py-3.5 text-xs font-black opacity-60">
+          ENTER AMOUNT TO SWAP
         </Button>
       ) : !hasSufficientBalance ? (
-        <Button variant="secondary" disabled className="w-full py-4 text-sm text-rose-300 border-rose-500/30">
-          Insufficient {isBuy ? 'ETH' : `$${token.symbol}`} Balance
+        <Button variant="secondary" disabled className="w-full py-3.5 text-xs font-black text-rose-300 border-rose-500">
+          INSUFFICIENT {isBuy ? 'ETH' : `$${token.symbol}`} BALANCE
         </Button>
       ) : needsApproval && !isBuy ? (
         <Button
@@ -515,9 +515,9 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
           onClick={handleApprove}
           loading={approving}
           disabled={approving}
-          className="w-full py-4 text-sm font-extrabold shadow-xl shadow-amber-950/40"
+          className="w-full py-3.5 text-xs font-black uppercase shadow-xl"
         >
-          {approving ? 'Approving...' : `1. Approve $${token.symbol}`}
+          {approving ? 'APPROVING...' : `1. APPROVE $${token.symbol}`}
         </Button>
       ) : (
         <Button
@@ -525,15 +525,13 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
           onClick={handleSwap}
           loading={swapping}
           disabled={swapping}
-          className={`w-full py-4 text-sm font-extrabold shadow-xl ${
-            !isBuy ? 'shadow-rose-950/50 bg-rose-500 hover:bg-rose-600' : ''
-          }`}
+          className="w-full py-3.5 text-xs font-black uppercase shadow-xl"
         >
           {swapping
-            ? 'Confirming Transaction...'
+            ? 'CONFIRMING TX...'
             : isBuy
-            ? `Buy $${token.symbol} with ETH`
-            : `Sell $${token.symbol} for ETH`}
+            ? `BUY $${token.symbol} WITH ETH`
+            : `SELL $${token.symbol} FOR ETH`}
         </Button>
       )}
     </div>

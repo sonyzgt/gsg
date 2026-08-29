@@ -12,10 +12,6 @@ interface ReceiveModalProps {
   onClose: () => void
 }
 
-function shortenAddress(addr: string) {
-  return `${addr.slice(0, 8)}...${addr.slice(-6)}`
-}
-
 export default function ReceiveModal({ open, onClose }: ReceiveModalProps) {
   const { address } = useWallet()
   const [copying, setCopying] = useState(false)
@@ -29,61 +25,53 @@ export default function ReceiveModal({ open, onClose }: ReceiveModalProps) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Receive Assets — Robinhood Chain">
-      <div className="flex flex-col items-center gap-5">
-        {/* QR Code */}
-        <div className="p-3.5 bg-white rounded-2xl shadow-xl border border-white/20">
+    <Modal open={open} onClose={onClose} title="// RECEIVE_ASSETS">
+      <div className="flex flex-col items-center gap-4 font-mono select-none">
+        {/* QR Code Frame */}
+        <div className="p-3 bg-white border-2 border-black shadow-[4px_4px_0px_0px_#ffffff] rounded-none">
           {address ? (
             <QRCodeSVG
               value={address}
-              size={180}
+              size={170}
               bgColor="#ffffff"
               fgColor="#000000"
               level="M"
             />
           ) : (
-            <div className="w-[180px] h-[180px] flex items-center justify-center">
-              <div className="w-8 h-8 animate-spin rounded-full border-2 border-zinc-300 border-t-emerald-500" />
+            <div className="w-[170px] h-[170px] flex items-center justify-center">
+              <div className="w-8 h-8 animate-spin border-2 border-black border-t-transparent" />
             </div>
           )}
         </div>
 
         {/* Instructions */}
-        <p className="text-zinc-400 text-xs text-center leading-relaxed">
-          Scan the QR code or copy your address to receive Native ETH and tokens on Robinhood Chain.
+        <p className="text-zinc-400 text-xs text-center font-sans leading-relaxed">
+          Scan the QR code or copy the address below to receive Native ETH and tokens on Robinhood Chain.
         </p>
 
         {/* Address */}
         {address && (
           <div className="w-full">
-            <p className="text-[11px] text-zinc-400 mb-1.5 text-center uppercase tracking-wider font-semibold">
-              Account Address
+            <p className="text-[10px] text-zinc-400 mb-1.5 uppercase font-black tracking-wider">
+              ACCOUNT ADDRESS
             </p>
-            <div className="flex items-center gap-2 bg-[#09110d] rounded-xl p-3 border border-white/[0.08]">
-              <code className="text-xs font-mono text-zinc-300 flex-1 break-all text-center">
-                {shortenAddress(address)}
+            <div className="flex items-center gap-2 bg-[#121519] rounded-lg p-2.5 border-2 border-zinc-700 shadow-[2px_2px_0px_0px_#000000]">
+              <code className="text-xs font-mono text-zinc-200 flex-1 break-all select-all">
+                {address}
               </code>
               <button
                 onClick={copyAddress}
-                className="flex-shrink-0 p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-emerald-400 transition-all"
+                className="flex-shrink-0 px-2 py-1 rounded bg-[var(--theme-color)] text-black border border-black shadow-[1px_1px_0px_0px_#ffffff] active:translate-x-0.5 active:translate-y-0.5 text-[10px] font-black cursor-pointer"
                 title="Copy Address"
               >
-                {copying ? (
-                  <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                )}
+                {copying ? 'COPIED' : 'COPY'}
               </button>
             </div>
           </div>
         )}
 
-        <Button onClick={onClose} variant="secondary" className="w-full">
-          Close
+        <Button onClick={onClose} variant="secondary" className="w-full py-2.5 text-xs font-black">
+          CLOSE
         </Button>
       </div>
     </Modal>

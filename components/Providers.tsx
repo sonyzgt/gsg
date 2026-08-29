@@ -54,7 +54,7 @@ export default function Providers({ children }: { children: ReactNode }) {
         },
         defaultChain: activeChain,
         supportedChains: [robinhoodChain],
-        loginMethods: ['twitter'],
+        loginMethods: ['twitter', 'google', 'wallet'],
       }}
     >
       <QueryClientProvider client={queryClient}>

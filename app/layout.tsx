@@ -24,8 +24,8 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://sparklefamily.fun'),
-  title: 'SPARKLE — Robinhood Chain',
-  description: 'SPARKLE — High-speed token sniping, portfolio management, and universal DEX routing on Robinhood Chain.',
+  title: 'PONSCORE — Robinhood Chain',
+  description: 'PONSCORE — High-speed token sniping, launchpad, portfolio management, and universal DEX routing on Robinhood Chain.',
   icons: {
     icon: [
       { url: '/sparkle-logo.svg', type: 'image/svg+xml' },

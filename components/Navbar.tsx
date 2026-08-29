@@ -1,8 +1,8 @@
 'use client'
 
 import { usePrivy, useLoginWithOAuth } from '@privy-io/react-auth'
+import { useWallet } from '@/hooks/useWallet'
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import Button from '@/components/ui/Button'
 import { useState } from 'react'
@@ -20,8 +20,10 @@ export default function Navbar({
   loggingOut = false,
 }: NavbarProps) {
   const pathname = usePathname()
-  const { user, authenticated } = usePrivy()
+  const { user, authenticated, connectWallet, login } = usePrivy()
+  const { address } = useWallet()
   const [loggingIn, setLoggingIn] = useState(false)
+  const [loginMenuOpen, setLoginMenuOpen] = useState(false)
   const { theme, setThemeId, themes } = useTheme()
   const [themeMenuOpen, setThemeMenuOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -36,38 +38,67 @@ export default function Navbar({
     },
   })
 
-  const handleLogin = async () => {
+  const handleOAuth = async (provider: 'twitter' | 'google') => {
     try {
       setLoggingIn(true)
-      await initOAuth({ provider: 'twitter' })
+      setLoginMenuOpen(false)
+      await initOAuth({ provider })
     } catch (err) {
       console.error('Login error:', err)
       setLoggingIn(false)
     }
   }
 
+  const handleWalletLogin = () => {
+    setLoginMenuOpen(false)
+    try {
+      if (typeof login === 'function') {
+        login()
+      } else {
+        connectWallet()
+      }
+    } catch {
+      connectWallet()
+    }
+  }
+
+  const isConnected = authenticated || !!address || !!user
+
   const twitterAccount = user?.linkedAccounts?.find(
     (a) => a.type === 'twitter_oauth'
   ) as { username?: string } | undefined
 
+  const googleAccount = user?.linkedAccounts?.find(
+    (a) => a.type === 'google_oauth'
+  ) as { name?: string; email?: string } | undefined
+
+  const walletAccount = user?.linkedAccounts?.find(
+    (a) => a.type === 'wallet'
+  ) as { address?: string } | undefined
+
+  const rawAddr = address || user?.wallet?.address || walletAccount?.address
+  const shortAddr = rawAddr ? `${rawAddr.slice(0, 6)}...${rawAddr.slice(-4)}` : undefined
+
   const displayName = twitterAccount?.username
     ? `@${twitterAccount.username}`
-    : user?.email?.address ?? 'User'
+    : googleAccount?.name ?? googleAccount?.email?.split('@')[0] ?? user?.email?.address?.split('@')[0] ?? shortAddr ?? 'CONNECTED'
 
   const navLinks = [
     {
-      label: 'Coins',
+      label: 'COINS',
       href: '/coin',
+      code: '01',
       icon: (
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <circle cx="12" cy="12" r="9" strokeWidth="2" />
+          <circle cx="12" cy="12" r="9" strokeWidth={2} />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v12M15 9.5a3.5 3.5 0 00-6 0c0 2 3 2.5 3 4.5a3.5 3.5 0 01-6 0" />
         </svg>
       ),
     },
     {
-      label: 'Launch',
+      label: 'LAUNCH',
       href: '/launch',
+      code: '02',
       icon: (
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -75,8 +106,9 @@ export default function Navbar({
       ),
     },
     {
-      label: 'Wallet',
+      label: 'WALLET',
       href: '/wallet',
+      code: '03',
       icon: (
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -86,51 +118,48 @@ export default function Navbar({
   ]
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-white/[0.1] bg-black/80 backdrop-blur-2xl select-none shadow-[0_10px_35px_rgba(0,0,0,0.6)]">
-      {/* Top subtle liquid refraction line */}
-      <div
-        className="h-[1px] w-full transition-all duration-500"
-        style={{ background: `linear-gradient(to right, transparent, ${theme.color}, transparent)` }}
-      />
-
-      <div className="w-full max-w-[1720px] mx-auto px-2.5 sm:px-6 lg:px-8 py-2 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
+    <header className="sticky top-0 z-40 w-full border-b-2 border-zinc-800 bg-[#08090a]/95 backdrop-blur-md select-none">
+      <div className="w-full max-w-[1720px] mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
         {/* Left: Brand Logo */}
-        <div className="flex items-center flex-shrink-0">
+        <div className="flex items-center gap-2.5 flex-shrink-0">
           <Link
             href="/coin"
-            className="flex items-center gap-1.5 sm:gap-2.5 cursor-pointer group flex-shrink-0"
+            className="flex items-center gap-2 group flex-shrink-0"
           >
-            <div className="w-7 h-7 sm:w-8 sm:h-8 group-hover:scale-110 transition-transform flex items-center justify-center flex-shrink-0">
-              <SparkleIcon size={28} />
+            <SparkleIcon size={38} className="flex-shrink-0 group-hover:scale-105 transition-transform" />
+            <div className="flex items-baseline gap-2">
+              <span className="font-black text-lg sm:text-xl tracking-tighter text-white font-mono">
+                PONSCORE
+              </span>
+              <span className="hidden sm:inline text-[9px] font-black font-mono px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
+                RH-4663
+              </span>
             </div>
-            <span className="font-extrabold text-sm sm:text-base tracking-tight text-white drop-shadow-md">
-              SPARKLE
-            </span>
           </Link>
         </div>
 
         {/* Center: Navigation Links Tab (Coins, Launch, Wallet) - Hidden on mobile */}
-        <nav className="hidden md:flex items-center gap-1 sm:gap-1.5 liquid-pill p-1 rounded-2xl flex-shrink-0">
+        <nav className="hidden md:flex items-center gap-1.5 p-1 bg-[#101317] border-2 border-zinc-800 rounded-lg shadow-[2px_2px_0px_0px_#000000] flex-shrink-0">
           {navLinks.map((link) => {
             const isActive = pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href))
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`flex items-center gap-2 px-3.5 sm:px-4 py-1.5 rounded-xl text-xs sm:text-sm transition-all ${
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-mono font-bold transition-all ${
                   isActive
-                    ? 'liquid-pill-active font-bold'
-                    : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.06] font-medium'
+                    ? 'bg-[var(--theme-color)] text-black border-2 border-white shadow-[2px_2px_0px_0px_#ffffff]'
+                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.06] border-2 border-transparent'
                 }`}
               >
-                <span className="opacity-90">{link.icon}</span>
+                <span className="text-[10px] opacity-70">[{link.code}]</span>
                 <span>{link.label}</span>
               </Link>
             )
           })}
         </nav>
 
-        {/* Right: Auth Profile, Theme Switcher & Dropdown */}
+        {/* Right: Theme Switcher & Auth Profile */}
         <div className="flex items-center gap-2 sm:gap-2.5 relative">
           {/* Theme Palette Switcher Button */}
           <div className="relative">
@@ -139,18 +168,16 @@ export default function Navbar({
               onClick={() => {
                 setThemeMenuOpen((prev) => !prev)
                 setDropdownOpen(false)
+                setLoginMenuOpen(false)
               }}
-              title="Change Theme Color"
-              className="flex items-center gap-1.5 liquid-pill px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-zinc-200 hover:text-white transition-all cursor-pointer group shadow-md"
+              title="Change Accent Theme"
+              className="flex items-center gap-1.5 bg-[#121519] border-2 border-zinc-700 hover:border-white px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-mono font-bold text-zinc-200 hover:text-white transition-all cursor-pointer shadow-[2px_2px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
             >
-              {/* Colored glowing indicator */}
               <div
-                className="w-3.5 h-3.5 rounded-full border border-white/40 shadow-sm transition-transform group-hover:scale-110 flex-shrink-0"
-                style={{ backgroundColor: theme.color, boxShadow: `0 0 10px ${theme.color}` }}
+                className="w-3.5 h-3.5 border border-black shadow-[1px_1px_0px_0px_#ffffff] flex-shrink-0"
+                style={{ backgroundColor: theme.color }}
               />
-              <svg className="w-3.5 h-3.5 text-zinc-400 group-hover:text-white transition-colors hidden sm:inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4 4 4 0 014-4h1a4 4 0 014 4 4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-              </svg>
+              <span className="hidden sm:inline text-[11px] uppercase font-mono">{theme.name.split(' ')[0]}</span>
             </button>
 
             {/* Theme Picker Dropdown */}
@@ -160,10 +187,15 @@ export default function Navbar({
                   className="fixed inset-0 z-40"
                   onClick={() => setThemeMenuOpen(false)}
                 />
-                <div className="absolute right-0 top-full mt-2.5 w-52 bg-black/95 backdrop-blur-2xl border border-white/15 rounded-2xl p-2.5 z-50 flex flex-col gap-1.5 shadow-[0_25px_60px_rgba(0,0,0,0.95)] ring-1 ring-white/10 animate-fadeIn">
-                  <div className="px-2 py-1 flex items-center justify-between border-b border-white/[0.08] mb-0.5">
-                    <span className="text-[11px] font-extrabold text-zinc-300 uppercase tracking-wider font-mono">Theme Colors</span>
-                    <span className="text-[10px] text-zinc-500 font-mono">{themes.length} themes</span>
+                <div
+                  style={{
+                    boxShadow: `4px 4px 0px 0px ${theme.color}`,
+                  }}
+                  className="absolute right-0 top-full mt-2 w-52 bg-[#0e1115] border-2 border-white rounded-lg p-2 z-50 flex flex-col gap-1 shadow-2xl animate-fadeIn select-none"
+                >
+                  <div className="px-2 py-1 flex items-center justify-between border-b border-zinc-800 mb-1">
+                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-wider font-mono">// ACCENT_THEMES</span>
+                    <span className="text-[10px] text-zinc-500 font-mono">[{themes.length}]</span>
                   </div>
 
                   <div className="grid grid-cols-1 gap-1">
@@ -177,23 +209,21 @@ export default function Navbar({
                             setThemeId(t.id)
                             setThemeMenuOpen(false)
                           }}
-                          className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          className={`flex items-center justify-between px-2.5 py-1.5 rounded text-xs font-mono font-bold transition-all cursor-pointer ${
                             isSelected
-                              ? 'bg-white/[0.12] text-white shadow-inner'
-                              : 'text-zinc-300 hover:text-white hover:bg-white/[0.06]'
+                              ? 'bg-[var(--theme-color)] text-black border border-white'
+                              : 'text-zinc-300 hover:text-white hover:bg-white/[0.08]'
                           }`}
                         >
-                          <div className="flex items-center gap-2.5">
+                          <div className="flex items-center gap-2">
                             <span
-                              className="w-3.5 h-3.5 rounded-full border border-white/30 shadow-sm flex-shrink-0"
-                              style={{ backgroundColor: t.color, boxShadow: isSelected ? `0 0 12px ${t.color}` : 'none' }}
+                              className="w-3 h-3 border border-black shadow-[1px_1px_0px_0px_#ffffff] flex-shrink-0"
+                              style={{ backgroundColor: t.color }}
                             />
                             <span>{t.name}</span>
                           </div>
                           {isSelected && (
-                            <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                            </svg>
+                            <span className="text-[10px] font-black font-mono">✓</span>
                           )}
                         </button>
                       )
@@ -204,96 +234,81 @@ export default function Navbar({
             )}
           </div>
 
-          {authenticated ? (
+          {isConnected ? (
             <div className="relative">
               {/* Clickable Username Button with Dropdown Trigger */}
               <button
                 type="button"
                 onClick={() => setDropdownOpen((prev) => !prev)}
-                className="flex items-center gap-1.5 sm:gap-2 text-xs text-zinc-200 hover:text-white font-mono liquid-pill px-2.5 sm:px-3.5 py-1.5 rounded-xl transition-all cursor-pointer group flex-shrink-0"
+                className="flex items-center gap-2 text-xs text-zinc-200 hover:text-white font-mono bg-[#121519] border-2 border-zinc-700 hover:border-white px-2.5 sm:px-3 py-1.5 rounded-md transition-all cursor-pointer shadow-[2px_2px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none flex-shrink-0"
               >
                 <span
-                  className="w-1.5 h-1.5 rounded-full shadow-[0_0_8px_currentColor] flex-shrink-0"
-                  style={{ backgroundColor: theme.color, color: theme.color }}
+                  className="w-2 h-2 rounded-none border border-black"
+                  style={{ backgroundColor: theme.color }}
                 />
-                <span className="max-w-[70px] xs:max-w-[100px] sm:max-w-[140px] truncate">{displayName}</span>
+                <span className="max-w-[80px] xs:max-w-[110px] sm:max-w-[140px] truncate font-bold font-mono">{displayName}</span>
                 <svg
-                  style={dropdownOpen ? { color: theme.color } : undefined}
-                  className={`w-3.5 h-3.5 text-zinc-400 group-hover:text-white transition-transform duration-200 flex-shrink-0 ${
+                  className={`w-3 h-3 text-zinc-400 transition-transform duration-150 flex-shrink-0 ${
                     dropdownOpen ? 'rotate-180' : ''
                   }`}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
 
               {/* Dropdown Menu */}
               {dropdownOpen && (
                 <>
-                  {/* Invisible backdrop to dismiss on outside click */}
                   <div
                     className="fixed inset-0 z-40"
                     onClick={() => setDropdownOpen(false)}
                   />
 
-                  <div className="absolute right-0 top-full mt-2.5 w-52 bg-black/95 backdrop-blur-2xl border border-white/15 rounded-2xl p-2 z-50 flex flex-col gap-1 shadow-[0_25px_60px_rgba(0,0,0,0.95)] ring-1 ring-white/15 animate-fadeIn">
-                    {/* Coins */}
+                  <div
+                    style={{
+                      boxShadow: `4px 4px 0px 0px ${theme.color}`,
+                    }}
+                    className="absolute right-0 top-full mt-2 w-56 bg-[#0e1115] border-2 border-white rounded-lg p-2 z-50 flex flex-col gap-1 shadow-2xl animate-fadeIn select-none font-mono"
+                  >
+                    <div className="px-2 py-1 mb-1 border-b border-zinc-800 flex items-center justify-between">
+                      <span className="text-[10px] font-black text-zinc-500 uppercase">// ACCOUNT</span>
+                      {shortAddr && (
+                        <span className="text-[10px] font-mono text-zinc-400">{shortAddr}</span>
+                      )}
+                    </div>
+
                     <Link
                       href="/coin"
                       onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-zinc-100 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer group/item"
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded text-xs font-bold text-zinc-200 hover:text-black hover:bg-[var(--theme-color)] transition-all cursor-pointer"
                     >
-                      <div
-                        style={{ backgroundColor: `${theme.primary}20`, borderColor: `${theme.primary}40`, color: theme.color }}
-                        className="w-7 h-7 rounded-lg border flex items-center justify-center group-hover/item:scale-110 transition-transform shadow-sm"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <span>Coins</span>
+                      <span>[01]</span>
+                      <span>COINS EXPLORER</span>
                     </Link>
 
-                    {/* Launch */}
                     <Link
                       href="/launch"
                       onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-zinc-100 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer group/item"
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded text-xs font-bold text-zinc-200 hover:text-black hover:bg-[var(--theme-color)] transition-all cursor-pointer"
                     >
-                      <div
-                        style={{ backgroundColor: `${theme.primary}20`, borderColor: `${theme.primary}40`, color: theme.color }}
-                        className="w-7 h-7 rounded-lg border flex items-center justify-center group-hover/item:scale-110 transition-transform shadow-sm"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                      </div>
-                      <span>Launch</span>
+                      <span>[02]</span>
+                      <span>LAUNCH TOKEN</span>
                     </Link>
 
-                    {/* Wallet */}
                     <Link
                       href="/wallet"
                       onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-zinc-100 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer group/item"
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded text-xs font-bold text-zinc-200 hover:text-black hover:bg-[var(--theme-color)] transition-all cursor-pointer"
                     >
-                      <div
-                        style={{ backgroundColor: `${theme.primary}20`, borderColor: `${theme.primary}40`, color: theme.color }}
-                        className="w-7 h-7 rounded-lg border flex items-center justify-center group-hover/item:scale-110 transition-transform shadow-sm"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                        </svg>
-                      </div>
-                      <span>Wallet</span>
+                      <span>[03]</span>
+                      <span>WALLET & PORTFOLIO</span>
                     </Link>
 
-                    <div className="my-1 border-t border-white/[0.1]" />
+                    <div className="my-1 border-t border-zinc-800" />
 
-                    {/* Sign Out */}
                     <button
                       type="button"
                       onClick={() => {
@@ -301,14 +316,10 @@ export default function Navbar({
                         onLogout()
                       }}
                       disabled={loggingOut}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-rose-400 hover:text-rose-200 hover:bg-rose-500/15 transition-all w-full text-left cursor-pointer group/item"
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded text-xs font-bold text-rose-400 hover:text-white hover:bg-rose-600 transition-all w-full text-left cursor-pointer"
                     >
-                      <div className="w-7 h-7 rounded-lg bg-rose-500/15 border border-rose-400/40 flex items-center justify-center text-rose-400 group-hover/item:scale-110 transition-transform shadow-sm">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                      </div>
-                      <span>Sign Out</span>
+                      <span>[✕]</span>
+                      <span>DISCONNECT</span>
                     </button>
                   </div>
                 </>
@@ -316,83 +327,129 @@ export default function Navbar({
             </div>
           ) : (
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleLogin}
-                loading={loggingIn}
-                className="gap-1.5 sm:gap-2 text-xs font-bold py-1.5 sm:py-2 px-2.5 sm:px-4 shadow-lg shadow-emerald-950/40 flex-shrink-0"
-              >
-                {!loggingIn && (
-                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current flex-shrink-0" aria-hidden>
-                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.859L1.506 2.25h6.953l4.256 5.625 5.529-5.625Zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                  </svg>
+              {/* Login Dropdown Button */}
+              <div className="relative">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setLoginMenuOpen((prev) => !prev)}
+                  loading={loggingIn}
+                  className="gap-1.5 text-xs font-mono font-black py-1.5 px-3 flex-shrink-0"
+                >
+                  <span>CONNECT</span>
+                  {!loggingIn && (
+                    <svg
+                      className={`w-3 h-3 transition-transform duration-150 flex-shrink-0 ${loginMenuOpen ? 'rotate-180' : ''}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )}
+                </Button>
+
+                {loginMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setLoginMenuOpen(false)} />
+                    <div
+                      style={{
+                        boxShadow: `4px 4px 0px 0px ${theme.color}`,
+                      }}
+                      className="absolute right-0 top-full mt-2 w-56 bg-[#0e1115] border-2 border-white rounded-lg p-2 z-50 flex flex-col gap-1.5 shadow-2xl animate-fadeIn select-none font-mono"
+                    >
+                      <div className="px-2 py-1 mb-0.5 border-b border-zinc-800">
+                        <span className="text-[10px] font-black text-zinc-400 uppercase">// CONNECT_AUTH</span>
+                      </div>
+
+                      {/* Twitter / X */}
+                      <button
+                        type="button"
+                        onClick={() => handleOAuth('twitter')}
+                        className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-xs font-bold text-zinc-100 hover:text-black hover:bg-white transition-all cursor-pointer border border-zinc-800 hover:border-white w-full text-left"
+                      >
+                        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current flex-shrink-0" aria-hidden>
+                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.859L1.506 2.25h6.953l4.256 5.625 5.529-5.625Zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                        </svg>
+                        <span>Continue with X</span>
+                      </button>
+
+                      {/* Google */}
+                      <button
+                        type="button"
+                        onClick={() => handleOAuth('google')}
+                        className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-xs font-bold text-zinc-100 hover:text-black hover:bg-white transition-all cursor-pointer border border-zinc-800 hover:border-white w-full text-left"
+                      >
+                        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 flex-shrink-0" aria-hidden>
+                          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
+                          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                        </svg>
+                        <span>Continue with Google</span>
+                      </button>
+
+                      <div className="my-0.5 border-t border-zinc-800" />
+
+                      {/* WalletConnect */}
+                      <button
+                        type="button"
+                        onClick={handleWalletLogin}
+                        className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-xs font-bold text-black bg-[var(--theme-color)] hover:brightness-110 transition-all cursor-pointer border border-white w-full text-left"
+                      >
+                        <svg viewBox="0 0 32 32" className="w-3.5 h-3.5 fill-current flex-shrink-0" aria-hidden>
+                          <path d="M6.552 10.759c5.21-5.096 13.664-5.096 18.874 0l.627.613a.643.643 0 0 1 0 .923l-2.144 2.096a.339.339 0 0 1-.472 0l-.863-.844c-3.636-3.556-9.531-3.556-13.167 0l-.924.903a.339.339 0 0 1-.472 0L5.867 12.354a.643.643 0 0 1 0-.923l.685-.672Zm23.301 4.34 1.908 1.866a.643.643 0 0 1 0 .922l-8.603 8.415a.678.678 0 0 1-.944 0l-6.105-5.972a.17.17 0 0 0-.236 0l-6.105 5.972a.678.678 0 0 1-.944 0L.221 17.887a.643.643 0 0 1 0-.922l1.908-1.866a.678.678 0 0 1 .944 0l6.105 5.972a.17.17 0 0 0 .236 0l6.105-5.972a.678.678 0 0 1 .944 0l6.105 5.972a.17.17 0 0 0 .236 0l6.105-5.972a.678.678 0 0 1 .944 0Z" />
+                        </svg>
+                        <span>Connect Wallet</span>
+                      </button>
+                    </div>
+                  </>
                 )}
-                <span className="hidden sm:inline">Log in with X</span>
-                <span className="sm:hidden">Login</span>
-              </Button>
+              </div>
 
               {/* Mobile Nav Trigger when Logged Out */}
               <div className="relative md:hidden">
                 <button
                   type="button"
                   onClick={() => setDropdownOpen((prev) => !prev)}
-                  className="p-1.5 rounded-xl liquid-pill text-zinc-300 hover:text-white transition-all cursor-pointer flex items-center justify-center flex-shrink-0"
+                  className="p-1.5 rounded-md border-2 border-zinc-700 bg-zinc-900 text-zinc-300 hover:text-white transition-all cursor-pointer flex items-center justify-center flex-shrink-0"
                   aria-label="Navigation Menu"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
                 </button>
 
                 {dropdownOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
-                    <div className="absolute right-0 top-full mt-2.5 w-48 bg-black/95 backdrop-blur-2xl border border-white/15 rounded-2xl p-2 z-50 flex flex-col gap-1 shadow-[0_25px_60px_rgba(0,0,0,0.95)] ring-1 ring-white/15 animate-fadeIn">
+                    <div
+                      style={{
+                        boxShadow: `4px 4px 0px 0px ${theme.color}`,
+                      }}
+                      className="absolute right-0 top-full mt-2 w-48 bg-[#0e1115] border-2 border-white rounded-lg p-2 z-50 flex flex-col gap-1 shadow-2xl animate-fadeIn font-mono"
+                    >
                       <Link
                         href="/coin"
                         onClick={() => setDropdownOpen(false)}
-                        className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-zinc-100 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer group/item"
+                        className="flex items-center gap-2 px-2.5 py-2 rounded text-xs font-bold text-zinc-100 hover:text-black hover:bg-[var(--theme-color)] transition-all cursor-pointer"
                       >
-                        <div
-                          style={{ backgroundColor: `${theme.primary}20`, borderColor: `${theme.primary}40`, color: theme.color }}
-                          className="w-7 h-7 rounded-lg border flex items-center justify-center group-hover/item:scale-110 transition-transform shadow-sm"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                        <span>Coins</span>
+                        <span>[01]</span>
+                        <span>COINS</span>
                       </Link>
                       <Link
                         href="/launch"
                         onClick={() => setDropdownOpen(false)}
-                        className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-zinc-100 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer group/item"
+                        className="flex items-center gap-2 px-2.5 py-2 rounded text-xs font-bold text-zinc-100 hover:text-black hover:bg-[var(--theme-color)] transition-all cursor-pointer"
                       >
-                        <div
-                          style={{ backgroundColor: `${theme.primary}20`, borderColor: `${theme.primary}40`, color: theme.color }}
-                          className="w-7 h-7 rounded-lg border flex items-center justify-center group-hover/item:scale-110 transition-transform shadow-sm"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                        </div>
-                        <span>Launch</span>
+                        <span>[02]</span>
+                        <span>LAUNCH</span>
                       </Link>
                       <Link
                         href="/wallet"
                         onClick={() => setDropdownOpen(false)}
-                        className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-zinc-100 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer group/item"
+                        className="flex items-center gap-2 px-2.5 py-2 rounded text-xs font-bold text-zinc-100 hover:text-black hover:bg-[var(--theme-color)] transition-all cursor-pointer"
                       >
-                        <div
-                          style={{ backgroundColor: `${theme.primary}20`, borderColor: `${theme.primary}40`, color: theme.color }}
-                          className="w-7 h-7 rounded-lg border flex items-center justify-center group-hover/item:scale-110 transition-transform shadow-sm"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                          </svg>
-                        </div>
-                        <span>Wallet</span>
+                        <span>[03]</span>
+                        <span>WALLET</span>
                       </Link>
                     </div>
                   </>

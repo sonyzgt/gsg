@@ -112,19 +112,24 @@ export default function TokenPriceChart({
   const isPositive = parseFloat(priceChangePct) >= 0
 
   return (
-    <div className="flex flex-col liquid-glass rounded-3xl p-4 sm:p-6 shadow-2xl overflow-hidden">
+    <div
+      style={{
+        boxShadow: `4px 4px 0px 0px #000000`,
+      }}
+      className="flex flex-col bg-[#0e1115] border-2 border-white rounded-xl p-4 sm:p-6 overflow-hidden font-mono select-none"
+    >
       {/* Chart Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/[0.06]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b-2 border-zinc-800">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-2xl sm:text-3xl font-extrabold text-white font-mono tracking-tight">
+            <span className="text-2xl sm:text-3xl font-black text-white tracking-tight">
               ${activePoint.priceUsd < 0.0001 ? activePoint.priceUsd.toFixed(8) : activePoint.priceUsd.toFixed(4)}
             </span>
             <span
-              className={`text-xs font-mono font-bold px-2 py-0.5 rounded-md border ${
+              className={`text-xs font-black px-2 py-0.5 border ${
                 isPositive
-                  ? 'liquid-pill text-theme-light border-theme'
-                  : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                  ? 'bg-[var(--theme-color)] text-black border-black shadow-[1px_1px_0px_0px_#000000]'
+                  : 'bg-rose-600 text-white border-black shadow-[1px_1px_0px_0px_#000000]'
               }`}
             >
               {isPositive ? '+' : ''}
@@ -132,25 +137,25 @@ export default function TokenPriceChart({
             </span>
           </div>
 
-          <div className="flex items-center gap-2 mt-1 text-xs text-zinc-400 font-mono">
+          <div className="flex items-center gap-2 mt-1 text-xs text-zinc-400">
             <span>
               1 {symbol} = {activePoint.priceNative < 0.00001 ? activePoint.priceNative.toFixed(10) : activePoint.priceNative.toFixed(6)} ETH
             </span>
-            <span className="text-zinc-600">&bull;</span>
-            <span className="text-zinc-500">{activePoint.time}</span>
+            <span className="text-zinc-600">/</span>
+            <span className="text-zinc-400 uppercase font-bold">{activePoint.time}</span>
           </div>
         </div>
 
         {/* Timeframe & Chart Style Controls */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center bg-black/60 border border-white/[0.06] rounded-xl p-1 font-mono text-xs">
+          <div className="flex items-center bg-black border-2 border-zinc-700 rounded-lg p-1 text-xs shadow-[2px_2px_0px_0px_#000000]">
             {(['1M', '5M', '15M', '1H', '1D'] as const).map((tf) => (
               <button
                 key={tf}
                 onClick={() => setTimeframe(tf)}
-                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold ${
+                className={`px-2.5 py-1 rounded transition-all cursor-pointer font-black ${
                   timeframe === tf
-                    ? 'liquid-pill-active text-white'
+                    ? 'bg-[var(--theme-color)] text-black border border-black shadow-[1px_1px_0px_0px_#000000]'
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
@@ -159,26 +164,26 @@ export default function TokenPriceChart({
             ))}
           </div>
 
-          <div className="flex items-center bg-black/60 border border-white/[0.06] rounded-xl p-1 text-xs font-mono">
+          <div className="flex items-center bg-black border-2 border-zinc-700 rounded-lg p-1 text-xs shadow-[2px_2px_0px_0px_#000000]">
             <button
               onClick={() => setChartType('area')}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer font-semibold ${
+              className={`px-2.5 py-1 rounded transition-all cursor-pointer font-black uppercase ${
                 chartType === 'area'
-                  ? 'liquid-pill-active text-white'
+                  ? 'bg-[var(--theme-color)] text-black border border-black shadow-[1px_1px_0px_0px_#000000]'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              Line
+              LINE
             </button>
             <button
               onClick={() => setChartType('candle')}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer font-semibold ${
+              className={`px-2.5 py-1 rounded transition-all cursor-pointer font-black uppercase ${
                 chartType === 'candle'
-                  ? 'liquid-pill-active text-white'
+                  ? 'bg-[var(--theme-color)] text-black border border-black shadow-[1px_1px_0px_0px_#000000]'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              Candles
+              CANDLES
             </button>
           </div>
         </div>

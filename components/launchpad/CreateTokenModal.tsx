@@ -41,26 +41,18 @@ export default function CreateTokenModal({
   onClose,
   onTokenCreated,
 }: CreateTokenModalProps) {
-  const { user, authenticated } = usePrivy()
+  const { user, authenticated, login } = usePrivy()
   const { address, balance, embeddedWallet, refetchBalance } = useWallet()
   const { theme } = useTheme()
-  const [loggingIn, setLoggingIn] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const { initOAuth } = useLoginWithOAuth({
-    onComplete: () => {
-      setLoggingIn(false)
-    },
-    onError: (err) => {
-      console.error('Login error:', err)
-      setLoggingIn(false)
-    },
-  })
+  const isConnected = !!address || authenticated
 
-  // â”€â”€ Form State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Form State ─────────────────────────────────────────────────────────────
   const [name, setName] = useState('')
   const [symbol, setSymbol] = useState('')
   const [logo, setLogo] = useState('')
+  const [previewLogo, setPreviewLogo] = useState('')
   const [description, setDescription] = useState('')
 
   // Socials
@@ -146,19 +138,16 @@ export default function CreateTokenModal({
         canvas.width = w
         canvas.height = h
         const ctx = canvas.getContext('2d')
+        let raw = event.target?.result as string
         if (ctx) {
           ctx.drawImage(img, 0, 0, w, h)
-          const dataUrl = canvas.toDataURL('image/webp', 0.88)
-          setLogo(dataUrl)
-          const serverUrl = await uploadImageToServer(dataUrl)
-          if (serverUrl) setLogo(serverUrl)
-          toast.success('Logo image uploaded!')
-        } else {
-          const raw = event.target?.result as string
-          setLogo(raw)
-          const serverUrl = await uploadImageToServer(raw)
-          if (serverUrl) setLogo(serverUrl)
+          raw = canvas.toDataURL('image/webp', 0.90)
         }
+        setPreviewLogo(raw)
+        setLogo(raw)
+        const serverUrl = await uploadImageToServer(raw)
+        if (serverUrl) setLogo(serverUrl)
+        toast.success('Logo siap digunakan!')
       }
       img.src = event.target?.result as string
     }
@@ -202,11 +191,8 @@ export default function CreateTokenModal({
       return
     }
     if (!address) {
-      toast.error('Wallet not connected. Please log in first.')
-      return
-    }
-    if (!embeddedWallet) {
-      toast.error('Wallet provider initializing, please wait a moment.')
+      toast.error('Silakan hubungkan wallet Anda terlebih dahulu.')
+      login()
       return
     }
 
@@ -215,11 +201,22 @@ export default function CreateTokenModal({
       return
     }
 
+    let provider: any
+    if (embeddedWallet) {
+      try {
+        await embeddedWallet.switchChain(activeChain.id)
+      } catch { /* continue */ }
+      provider = await embeddedWallet.getEthereumProvider()
+    } else if (typeof window !== 'undefined' && (window as any).ethereum) {
+      provider = (window as any).ethereum
+    } else {
+      toast.error('Wallet provider belum siap. Silakan hubungkan kembali wallet Anda.')
+      return
+    }
+
     setDeploying(true)
 
     try {
-      await embeddedWallet.switchChain(activeChain.id)
-      const provider = await embeddedWallet.getEthereumProvider()
       const { createWalletClient, custom } = await import('viem')
       const walletClient = createWalletClient({
         chain: activeChain,
@@ -240,7 +237,7 @@ export default function CreateTokenModal({
       const exactLaunchFee = await getLaunchFee()
 
       // Ensure logo is a full public HTTPS URL accessible by GMGN, DexScreener, Pons
-      const FALLBACK_LOGO = 'https://launchsparkle.fun/sparkle-logo.svg'
+      const FALLBACK_LOGO = 'https://ponscore.fun/sparkle-logo.svg'
       let finalLogo = logo.trim()
 
       // If still base64, upload now
@@ -262,7 +259,7 @@ export default function CreateTokenModal({
 
       // Convert relative path to full HTTPS URL
       if (finalLogo.startsWith('/uploads/') || finalLogo.startsWith('/')) {
-        finalLogo = `https://launchsparkle.fun${finalLogo}`
+        finalLogo = `https://ponscore.fun${finalLogo}`
       }
 
       // Convert ipfs:// to gateway URL
@@ -481,32 +478,30 @@ export default function CreateTokenModal({
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title="Launch Token â€” Pons v2 Bonding Curve">
-      <div className="flex flex-col gap-4 max-h-[80vh] overflow-y-auto pr-1">
+    <Modal open={open} onClose={handleClose} title="// LAUNCH_TOKEN">
+      <div className="flex flex-col gap-4 max-h-[80vh] overflow-y-auto pr-1 font-mono select-none">
         {/* Info Banner */}
-        <div className="bg-[#09110d] border border-white/10 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-inner">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 flex items-center justify-center relative flex-shrink-0">
-              <SparkleIcon size={28} />
-            </div>
+        <div className="bg-[#121519] border-2 border-zinc-800 rounded-lg p-3 flex items-center justify-between gap-3 shadow-[2px_2px_0px_0px_#000000]">
+          <div className="flex items-center gap-2">
+            <SparkleIcon size={28} className="flex-shrink-0" />
             <div>
-              <p className="text-xs font-bold text-white">100% Fair Launch</p>
-              <p className="text-[11px] text-zinc-400">
+              <p className="text-xs font-black uppercase text-white">100% FAIR LAUNCH</p>
+              <p className="text-[10px] text-zinc-400 font-sans">
                 1B supply minted straight to bonding curve. Automated Uniswap v4 graduation.
               </p>
             </div>
           </div>
-          <span className="text-xs font-mono font-bold text-theme-light liquid-pill px-2 py-0.5 rounded border-theme flex-shrink-0">
-            Robinhood Chain
+          <span className="text-[10px] font-black bg-[var(--theme-color)] text-black px-2 py-0.5 border border-black flex-shrink-0">
+            [RH-4663]
           </span>
         </div>
 
-        {/* â”€â”€ Basic Info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* Basic Token Details */}
         <div className="flex flex-col gap-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-zinc-300 mb-1 block">
-                Token Name <span style={{ color: theme.color }}>*</span>
+              <label className="text-xs font-black uppercase text-zinc-300 mb-1 block">
+                NAME <span style={{ color: theme.color }}>*</span>
               </label>
               <input
                 type="text"
@@ -514,13 +509,12 @@ export default function CreateTokenModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Cyber Frog"
-                className="w-full bg-[#09110d] border border-white/[0.08] focus:border-theme rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none"
+                className="w-full bg-[#121519] border-2 border-zinc-700 focus:border-white rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-500 shadow-[2px_2px_0px_0px_#000000] focus:shadow-[3px_3px_0px_0px_#ffffff] focus:outline-none transition-all font-sans"
               />
             </div>
-
             <div>
-              <label className="text-xs font-semibold text-zinc-300 mb-1 block">
-                Symbol / Ticker <span style={{ color: theme.color }}>*</span>
+              <label className="text-xs font-black uppercase text-zinc-300 mb-1 block">
+                TICKER <span style={{ color: theme.color }}>*</span>
               </label>
               <input
                 type="text"
@@ -528,16 +522,16 @@ export default function CreateTokenModal({
                 maxLength={10}
                 value={symbol}
                 onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                placeholder="e.g. FROG"
-                className="w-full bg-[#09110d] border border-white/[0.08] focus:border-theme rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none font-mono uppercase"
+                placeholder="FROG"
+                className="w-full bg-[#121519] border-2 border-zinc-700 focus:border-white rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-500 shadow-[2px_2px_0px_0px_#000000] focus:shadow-[3px_3px_0px_0px_#ffffff] focus:outline-none transition-all uppercase font-mono font-bold"
               />
             </div>
           </div>
 
-          {/* Direct Image File Upload */}
+          {/* Logo File Upload */}
           <div>
-            <label className="text-xs font-semibold text-zinc-300 mb-1.5 block">
-              Token Logo Image
+            <label className="text-xs font-black uppercase text-zinc-300 mb-1 block">
+              TOKEN LOGO
             </label>
             <input
               type="file"
@@ -547,39 +541,39 @@ export default function CreateTokenModal({
               className="hidden"
             />
 
-            {logo ? (
-              <div className="flex items-center justify-between p-3 bg-[#09110d] border border-white/15 rounded-2xl">
+            {previewLogo || logo ? (
+              <div className="flex items-center justify-between p-3 bg-[#121519] border-2 border-zinc-700 rounded-lg shadow-[2px_2px_0px_0px_#000000]">
                 <div className="flex items-center gap-3">
-                  <div
-                    style={{ borderColor: `${theme.primary}55` }}
-                    className="w-12 h-12 rounded-xl bg-black border overflow-hidden relative flex-shrink-0 flex items-center justify-center"
-                  >
-                    <TokenImage
-                      src={logo}
+                  <div className="w-10 h-10 rounded-md bg-black border-2 border-white overflow-hidden relative flex-shrink-0 flex items-center justify-center shadow-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={previewLogo || logo}
                       alt="Token Logo Preview"
-                      size={48}
                       className="w-full h-full object-cover"
                     />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-white">Logo Uploaded</p>
-                    <p className="text-[10px] font-mono text-theme-light">Ready for on-chain deploy</p>
+                    <p className="text-xs font-black text-white uppercase">LOGO READY</p>
+                    <p className="text-[10px] text-theme-light font-mono">Ready for deploy</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-white/[0.08] cursor-pointer"
+                    className="text-xs px-2 py-1 rounded bg-[#181b20] hover:bg-white text-zinc-200 hover:text-black border border-zinc-600 hover:border-white transition-all cursor-pointer font-bold"
                   >
-                    Change
+                    CHANGE
                   </button>
                   <button
                     type="button"
-                    onClick={() => setLogo('')}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 cursor-pointer"
+                    onClick={() => {
+                      setLogo('')
+                      setPreviewLogo('')
+                    }}
+                    className="text-xs px-2 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white border border-black transition-all cursor-pointer font-bold"
                   >
-                    Remove
+                    REMOVE
                   </button>
                 </div>
               </div>
@@ -591,87 +585,81 @@ export default function CreateTokenModal({
                 }}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className="flex flex-col items-center justify-center p-4 sm:p-5 bg-[#09110d] hover:bg-white/[0.04] border-2 border-dashed border-white/[0.12] hover:border-theme rounded-2xl cursor-pointer transition-all text-center group"
+                className="flex flex-col items-center justify-center p-4 bg-[#121519] hover:bg-white/[0.04] border-2 border-dashed border-zinc-700 hover:border-white rounded-lg cursor-pointer transition-all text-center group shadow-[2px_2px_0px_0px_#000000]"
               >
-                <div className="w-9 h-9 rounded-xl bg-black border border-white/[0.08] group-hover:border-theme flex items-center justify-center text-zinc-400 mb-2 shadow-sm">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <div className="w-8 h-8 rounded-md bg-black border border-zinc-600 group-hover:border-white flex items-center justify-center text-zinc-400 mb-1 shadow-sm">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <p className="text-xs font-bold text-zinc-200 group-hover:text-theme-light transition-colors">
-                  Click to select image file
+                <p className="text-xs font-black uppercase text-white group-hover:text-theme-light transition-colors">
+                  CHOOSE IMAGE FILE
                 </p>
-                <p className="text-[10px] text-zinc-500 mt-0.5">
-                  Supports PNG, JPG, WEBP, SVG, GIF (Drag & drop here)
+                <p className="text-[10px] text-zinc-500 font-sans">
+                  PNG, JPG, WEBP, SVG, GIF
                 </p>
               </div>
             )}
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-zinc-300 mb-1.5 block">Description</label>
+            <label className="text-xs font-black uppercase text-zinc-300 mb-1 block">DESCRIPTION</label>
             <textarea
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Tell the community about your project..."
-              className="w-full bg-[#09110d] border border-white/[0.08] focus:border-theme rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none font-sans resize-none"
+              className="w-full bg-[#121519] border-2 border-zinc-700 focus:border-white rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-500 shadow-[2px_2px_0px_0px_#000000] focus:shadow-[3px_3px_0px_0px_#ffffff] focus:outline-none font-sans resize-none"
             />
           </div>
         </div>
 
         {/* Social Links (Optional) */}
-        <div className="bg-[#09110d]/60 border border-white/[0.06] rounded-2xl p-3 flex flex-col gap-2.5">
-          <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-            <span>Social Links</span>
-            <span className="text-[10px] text-zinc-500 font-normal">(Optional)</span>
-          </span>
+        <div className="bg-[#121519] border-2 border-zinc-800 rounded-lg p-3 flex flex-col gap-2">
+          <span className="text-xs font-black uppercase text-zinc-300">// SOCIAL_LINKS (OPTIONAL)</span>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <input
               type="text"
               value={twitter}
               onChange={(e) => setTwitter(e.target.value)}
-              placeholder="Twitter / X (e.g. @elonmusk)"
-              className="w-full bg-[#050b08] border border-white/[0.08] focus:border-theme rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none font-mono"
+              placeholder="Twitter / X (@handle)"
+              className="w-full bg-[#0b0d10] border border-zinc-700 focus:border-white rounded px-2.5 py-1.5 text-xs text-white placeholder-zinc-600 focus:outline-none"
             />
             <input
               type="text"
               value={telegram}
               onChange={(e) => setTelegram(e.target.value)}
               placeholder="Telegram (t.me/...)"
-              className="w-full bg-[#050b08] border border-white/[0.08] focus:border-theme rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none font-mono"
+              className="w-full bg-[#0b0d10] border border-zinc-700 focus:border-white rounded px-2.5 py-1.5 text-xs text-white placeholder-zinc-600 focus:outline-none"
             />
             <input
               type="text"
               value={website}
               onChange={(e) => setWebsite(e.target.value)}
               placeholder="Website (https://...)"
-              className="w-full bg-[#050b08] border border-white/[0.08] focus:border-theme rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none font-mono"
+              className="w-full bg-[#0b0d10] border border-zinc-700 focus:border-white rounded px-2.5 py-1.5 text-xs text-white placeholder-zinc-600 focus:outline-none"
             />
             <input
               type="text"
               value={discord}
               onChange={(e) => setDiscord(e.target.value)}
               placeholder="Discord invite URL"
-              className="w-full bg-[#050b08] border border-white/[0.08] focus:border-theme rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none font-mono"
+              className="w-full bg-[#0b0d10] border border-zinc-700 focus:border-white rounded px-2.5 py-1.5 text-xs text-white placeholder-zinc-600 focus:outline-none"
             />
           </div>
         </div>
 
-        {/* 1-Click Launch & Buy (Anti-Frontrun) */}
-        <div className="bg-[#09150f] border border-white/10 rounded-2xl p-3.5 flex flex-col gap-2">
+        {/* 1-Click Launch & Buy */}
+        <div className="bg-[#121519] border-2 border-zinc-800 rounded-lg p-3 flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-bold text-theme-light flex items-center gap-1.5">
-              <span>First Buy in Same Transaction</span>
-              <span className="text-[10px] liquid-pill px-2 py-0.5 rounded-full font-mono text-theme-light border-theme">
-                Anti-Frontrun
+            <label className="text-xs font-black uppercase text-theme-light flex items-center gap-1.5">
+              <span>FIRST BUY IN SAME TRANSACTION</span>
+              <span className="text-[8px] font-black px-1 py-0.2 bg-[var(--theme-color)] text-black border border-black">
+                ANTI-SNIPER
               </span>
             </label>
           </div>
-          <p className="text-[11px] text-zinc-400">
-            Buy tokens atomically during launch so front-running bots cannot snipe ahead of you.
-          </p>
           <div className="flex items-center gap-2 mt-0.5">
             <input
               type="number"
@@ -680,9 +668,9 @@ export default function CreateTokenModal({
               value={initialBuyEth}
               onChange={(e) => setInitialBuyEth(e.target.value)}
               placeholder="0.0 (Optional ETH amount)"
-              className="flex-1 bg-[#050b08] border border-white/[0.08] focus:border-theme rounded-xl px-3 py-2 text-xs font-mono text-white placeholder-zinc-600 focus:outline-none"
+              className="flex-1 bg-[#0b0d10] border-2 border-zinc-700 focus:border-white rounded px-2.5 py-1.5 text-xs font-mono text-white placeholder-zinc-600 focus:outline-none"
             />
-            <span className="text-xs font-bold font-mono text-zinc-300 bg-zinc-900 px-3 py-2 rounded-xl border border-white/[0.06]">
+            <span className="text-xs font-black font-mono text-black bg-[var(--theme-color)] px-2.5 py-1.5 rounded border border-black">
               ETH
             </span>
           </div>
@@ -693,19 +681,19 @@ export default function CreateTokenModal({
           <button
             type="button"
             onClick={() => setShowAdvanced((prev) => !prev)}
-            className="text-xs text-zinc-400 hover:text-theme-light flex items-center gap-1 font-mono transition-colors cursor-pointer"
+            className="text-xs text-zinc-400 hover:text-white flex items-center gap-1 font-mono transition-colors cursor-pointer font-bold uppercase"
           >
-            <span>{showAdvanced ? 'â–¼ Hide Advanced Economics' : 'â–¶ Advanced Token Economics'}</span>
+            <span>{showAdvanced ? '▼ [HIDE ADVANCED]' : '▶ [ADVANCED TOKEN ECONOMICS]'}</span>
           </button>
 
           {showAdvanced && (
-            <div className="mt-3 bg-[#09110d] border border-white/[0.08] rounded-2xl p-3.5 flex flex-col gap-3.5 animate-fadeIn">
+            <div className="mt-2 bg-[#121519] border-2 border-zinc-800 rounded-lg p-3 flex flex-col gap-2.5 animate-fadeIn">
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-semibold text-zinc-300">
-                    Creator Royalty Tax: <span className="font-mono text-theme-light">{(creatorTaxBps / 100).toFixed(1)}%</span>
+                  <label className="text-xs font-bold text-zinc-300">
+                    Creator Royalty: <span className="font-mono text-theme-light">{(creatorTaxBps / 100).toFixed(1)}%</span>
                   </label>
-                  <span className="text-[10px] text-zinc-400 font-mono">Min 1.0% â€¢ Max 5.0%</span>
+                  <span className="text-[10px] text-zinc-500 font-mono">Min 1.0% • Max 5.0%</span>
                 </div>
                 <input
                   type="range"
@@ -722,33 +710,20 @@ export default function CreateTokenModal({
           )}
         </div>
 
-        {/* Connected Wallet & Balance Status */}
+        {/* Connected Wallet Status */}
         {address && (
-          <div className="bg-[#09110d] border border-white/[0.08] rounded-2xl p-3.5 flex flex-col gap-2 font-mono text-xs">
+          <div className="bg-[#121519] border-2 border-zinc-800 rounded-lg p-2.5 flex flex-col gap-1 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-zinc-400">Wallet:</span>
               <div className="flex items-center gap-1.5">
                 <code className="text-theme-light font-bold">
                   {address.slice(0, 6)}...{address.slice(-4)}
                 </code>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(address)
-                    toast.success('Address copied!')
-                  }}
-                  className="text-zinc-400 hover:text-white cursor-pointer"
-                  title="Copy Address"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                </button>
               </div>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-zinc-400">Your Balance:</span>
-              <span className="font-bold text-white">
+              <span className="text-zinc-400">Balance:</span>
+              <span className="font-black text-white">
                 {ethBalance < 0.001 && ethBalance > 0
                   ? ethBalance.toFixed(6)
                   : ethBalance.toFixed(4)}{' '}
@@ -756,63 +731,59 @@ export default function CreateTokenModal({
               </span>
             </div>
             {!hasSufficientEth && (
-              <p className="text-[11px] text-amber-300/90 font-sans leading-relaxed pt-1 border-t border-white/[0.04]">
-                Shortfall: Need {totalEthRequired.toFixed(4)} ETH (Protocol launch fee 0.0005 ETH + gas).
+              <p className="text-[10px] text-amber-300 font-sans pt-1 border-t border-zinc-800">
+                Shortfall: Need {totalEthRequired.toFixed(4)} ETH (Fee + Gas).
               </p>
             )}
           </div>
         )}
 
         {/* Summary Breakdown */}
-        <div className="bg-black/50 border border-white/[0.06] rounded-2xl p-3 flex flex-col gap-1.5 text-xs font-mono text-zinc-400">
+        <div className="bg-black border-2 border-zinc-800 rounded-lg p-2.5 flex flex-col gap-1 text-xs text-zinc-400">
           <div className="flex justify-between">
-            <span>Protocol Launch Fee:</span>
-            <span className="text-zinc-200">
-              {fetchingFee ? 'Loading...' : launchFeeEth > 0 ? `${launchFeeEth} ETH` : 'Free (0 ETH)'}
+            <span>PROTOCOL FEE:</span>
+            <span className="text-white font-bold">
+              {fetchingFee ? '...' : launchFeeEth > 0 ? `${launchFeeEth} ETH` : 'FREE'}
             </span>
           </div>
           {initialBuyNum > 0 && (
             <div className="flex justify-between">
-              <span>Opening Buy Amount:</span>
+              <span>OPENING BUY:</span>
               <span className="font-bold text-theme-light">+{initialBuyNum.toFixed(4)} ETH</span>
             </div>
           )}
-          <div className="flex justify-between pt-1.5 border-t border-white/[0.06] text-white font-bold">
-            <span>Total Required:</span>
+          <div className="flex justify-between pt-1 border-t border-zinc-800 text-white font-black">
+            <span>TOTAL REQUIRED:</span>
             <span className="text-theme-light">{totalEthRequired.toFixed(4)} ETH</span>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-3 pt-2">
+        <div className="grid grid-cols-2 gap-3 pt-1">
           <Button variant="secondary" onClick={handleClose} disabled={deploying}>
-            Cancel
+            CANCEL
           </Button>
 
-          {!authenticated ? (
+          {!isConnected ? (
             <Button
               variant="primary"
-              onClick={async () => {
-                setLoggingIn(true)
-                await initOAuth({ provider: 'twitter' })
-              }}
-              loading={loggingIn}
-              className="font-bold"
+              onClick={() => login()}
+              className="font-black text-xs"
             >
-              Log in with X
+              CONNECT WALLET
             </Button>
           ) : (
             <Button
               variant="primary"
               onClick={handleLaunchToken}
               loading={deploying}
-              className="font-bold"
+              className="font-black text-xs shadow-[2px_2px_0px_0px_#000000]"
             >
               {deploying
-                ? 'Deploying...'
+                ? 'DEPLOYING...'
                 : initialBuyNum > 0
-                ? 'Launch & Buy'
-                : 'Launch Token'}
+                ? 'LAUNCH & BUY'
+                : 'LAUNCH TOKEN'}
             </Button>
           )}
         </div>

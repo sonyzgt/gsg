@@ -579,26 +579,26 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
     onClose()
   }
 
-  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <Modal open={open} onClose={handleClose} title="Swap Tokens â€” Robinhood Chain">
-      <div className="flex flex-col gap-3">
+    <Modal open={open} onClose={handleClose} title="// DEX_SWAP">
+      <div className="flex flex-col gap-3 font-mono select-none">
 
         {/* Network & Slippage Header */}
-        <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300 bg-white/[0.02] border border-white/[0.08] rounded-xl px-3 py-2">
+        <div className="flex items-center gap-2 text-xs font-black uppercase text-zinc-300 bg-[#121519] border-2 border-zinc-800 rounded-lg px-3 py-2 shadow-[2px_2px_0px_0px_#000000]">
           <span
-            className="w-1.5 h-1.5 rounded-full animate-pulse"
-            style={{ backgroundColor: theme.color, boxShadow: `0 0 8px ${theme.color}` }}
+            className="w-1.5 h-1.5 rounded-none"
+            style={{ backgroundColor: theme.color }}
           />
-          <span>Robinhood Chain Mainnet (4663)</span>
+          <span>ROBINHOOD MAINNET [4663]</span>
           <button
             onClick={() => setShowSettings(p => !p)}
-            className="ml-auto text-zinc-400 hover:text-white transition-colors text-xs font-mono flex items-center gap-1"
+            className="ml-auto text-zinc-400 hover:text-white transition-colors text-xs flex items-center gap-1 cursor-pointer"
             title="Slippage settings"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             <span>{slippage}%</span>
           </button>
@@ -606,17 +606,17 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
 
         {/* Slippage Settings Drawer */}
         {showSettings && (
-          <div className="bg-[#09110d] border border-white/[0.08] rounded-xl p-3 flex flex-col gap-2 animate-fadeIn">
-            <span className="text-xs font-semibold text-zinc-300">Slippage Tolerance</span>
+          <div className="bg-[#121519] border-2 border-zinc-700 rounded-lg p-2.5 flex flex-col gap-2 animate-fadeIn shadow-[2px_2px_0px_0px_#000000]">
+            <span className="text-xs font-black uppercase text-zinc-300">// SLIPPAGE_TOLERANCE</span>
             <div className="flex gap-2">
               {[0.1, 0.5, 1.0, 3.0].map(s => (
                 <button
                   key={s}
                   onClick={() => setSlippage(s)}
-                  className={`flex-1 py-1 text-xs rounded-lg border font-mono transition-colors ${
+                  className={`flex-1 py-1 text-xs rounded border transition-all cursor-pointer font-black ${
                     slippage === s
-                      ? 'liquid-pill-active font-bold'
-                      : 'border-white/[0.08] text-zinc-400 hover:text-white'
+                      ? 'bg-[var(--theme-color)] text-black border-black shadow-[1px_1px_0px_0px_#000000]'
+                      : 'bg-black text-zinc-400 border-zinc-700 hover:text-white'
                   }`}
                 >
                   {s}%
@@ -628,11 +628,11 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
 
         {/* Token CA Input */}
         <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-semibold text-zinc-300">Target Token (CA / Link)</label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-black uppercase text-zinc-300">TARGET TOKEN (CA / LINK)</label>
             {fetchingInfo && (
-              <span className="text-[11px] font-mono text-theme-light animate-pulse">
-                Fetching token pool...
+              <span className="text-[10px] font-black text-theme-light animate-pulse uppercase">
+                FETCHING POOL...
               </span>
             )}
           </div>
@@ -641,18 +641,18 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
             value={caInput}
             onChange={e => setCaInput(e.target.value)}
             placeholder="0x... or https://robinhood.social/tx/..."
-            className="w-full bg-[#09110d] border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 font-mono focus:outline-none focus:border-theme transition-colors"
+            className="w-full bg-[#121519] border-2 border-zinc-700 focus:border-white rounded-lg px-3.5 py-2 text-xs text-white placeholder-zinc-500 font-mono focus:outline-none transition-colors shadow-[2px_2px_0px_0px_#000000]"
           />
           {infoError && (
-            <p className="text-xs text-rose-400 mt-1 font-mono">{infoError}</p>
+            <p className="text-[11px] text-rose-400 mt-1 font-bold">{infoError}</p>
           )}
 
           {/* Quick pick chips */}
-          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-            <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-wider">Quick Pick:</span>
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            <span className="text-[10px] text-zinc-500 font-black uppercase tracking-wider">QUICK PICK:</span>
             <button
               onClick={() => setCaInput('0x5fc5360d0400a0fd4f2af552add042d716f1d168')}
-              className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-900/80 hover:bg-white/[0.06] border border-white/[0.06] hover:border-theme text-zinc-300 hover:text-white transition-all cursor-pointer"
+              className="text-[10px] font-black px-2 py-0.5 rounded bg-zinc-900 hover:bg-white text-zinc-300 hover:text-black border border-zinc-700 hover:border-white shadow-[1px_1px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer uppercase"
             >
               $USDG
             </button>
@@ -661,46 +661,46 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
 
         {/* Token Card preview */}
         {tokenInfo && (
-          <div className="bg-[#09110d]/90 border border-white/15 rounded-xl p-3 flex items-center justify-between gap-3 animate-fadeIn">
+          <div className="bg-[#121519] border-2 border-zinc-700 rounded-lg p-2.5 flex items-center justify-between gap-3 shadow-[2px_2px_0px_0px_#000000] animate-fadeIn">
             <div className="flex items-center gap-2.5 min-w-0">
-              <SparkleIcon size={32} className="flex-shrink-0" />
+              <SparkleIcon size={28} className="flex-shrink-0" />
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-bold text-white truncate">{tokenInfo.name}</span>
-                  <span className="text-xs text-zinc-400 font-mono">({tokenInfo.symbol})</span>
+                  <span className="text-xs font-black text-white truncate uppercase">{tokenInfo.name}</span>
+                  <span className="text-[11px] text-zinc-400 font-bold">(${tokenInfo.symbol})</span>
                 </div>
-                <div className="text-[11px] text-zinc-400 font-mono">
+                <div className="text-[10px] text-theme-light">
                   {tokenInfo.priceNative > 0
-                    ? `1 ${tokenInfo.symbol} â‰ˆ ${tokenInfo.priceNative < 0.0001 ? tokenInfo.priceNative.toFixed(10) : tokenInfo.priceNative.toFixed(6)} ETH`
+                    ? `1 ${tokenInfo.symbol} ≈ ${tokenInfo.priceNative < 0.0001 ? tokenInfo.priceNative.toFixed(10) : tokenInfo.priceNative.toFixed(6)} ETH`
                     : 'Pool not active'}
                 </div>
               </div>
             </div>
             <div className="text-right flex-shrink-0">
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full liquid-pill text-theme-light border-theme font-mono uppercase">
-                {tokenInfo.dexType === 'pons-v2' ? 'Pons V2' : 'Sushi V3'}
+              <span className="text-[9px] font-black px-1.5 py-0.5 bg-[var(--theme-color)] text-black border border-black uppercase">
+                {tokenInfo.dexType === 'pons-v2' ? 'PONS V2' : 'SUSHI V3'}
               </span>
             </div>
           </div>
         )}
 
         {/* FROM */}
-        <div className="bg-[#09110d]/80 border border-white/[0.08] rounded-xl p-3.5 sm:p-4 backdrop-blur-md">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-zinc-400">You Pay</span>
-            <div className="flex items-center gap-1 text-xs text-zinc-400 font-mono">
-              <span>Bal: {maxBalance.toFixed(4)} {fromSymbol}</span>
+        <div className="bg-[#121519] border-2 border-zinc-700 rounded-lg p-3 shadow-[2px_2px_0px_0px_#000000]">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-black uppercase text-zinc-400">// YOU_PAY</span>
+            <div className="flex items-center gap-1 text-[11px] text-zinc-400">
+              <span>BAL: {maxBalance.toFixed(4)} {fromSymbol}</span>
               {maxBalance > 0 && (
                 <button
                   onClick={handleMax}
-                  className="text-theme-light hover:text-white font-bold ml-1 cursor-pointer"
+                  className="text-theme-light hover:underline font-black ml-1 cursor-pointer uppercase"
                 >
-                  MAX
+                  [MAX]
                 </button>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="flex items-center gap-2">
             <input
               type="number"
               value={amount}
@@ -708,10 +708,10 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
               placeholder="0.0"
               min="0"
               step="any"
-              className="flex-1 min-w-0 bg-transparent text-xl sm:text-2xl font-bold text-white font-mono focus:outline-none placeholder-zinc-600"
+              className="flex-1 min-w-0 bg-transparent text-xl font-black text-white focus:outline-none placeholder-zinc-600"
             />
-            <div className="flex items-center gap-1.5 bg-[#09110d] border border-white/[0.08] rounded-xl px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-bold text-white select-none flex-shrink-0">
-              <SparkleIcon size={16} className="flex-shrink-0" />
+            <div className="flex items-center gap-1.5 bg-black border border-zinc-700 rounded px-2.5 py-1 text-xs font-black text-white select-none flex-shrink-0">
+              <SparkleIcon size={14} className="flex-shrink-0" />
               <span>{fromSymbol}</span>
             </div>
           </div>
@@ -721,35 +721,26 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
         <div className="flex justify-center -my-1">
           <button
             onClick={handleFlip}
-            className="bg-zinc-900 hover:bg-white/[0.1] border border-white/[0.08] hover:border-theme rounded-xl p-2 transition-all text-zinc-400 hover:text-white cursor-pointer"
+            className="bg-[#181b20] hover:bg-white text-zinc-400 hover:text-black border-2 border-zinc-700 hover:border-white rounded-lg p-1.5 transition-all cursor-pointer shadow-[2px_2px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5"
             title="Switch Direction"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" />
             </svg>
           </button>
         </div>
 
         {/* TO */}
-        <div className="bg-[#09110d]/80 border border-white/[0.08] rounded-xl p-3.5 sm:p-4 backdrop-blur-md">
-          <div className="flex flex-wrap items-center justify-between gap-1 mb-2">
-            <span className="text-xs font-semibold text-zinc-400">You Receive (Estimated)</span>
-            {tokenInfo && (
-              <span className="text-xs font-medium">
-                {tokenInfo.source === 'geckoterminal' && <span className="text-zinc-400 font-mono">GeckoTerminal</span>}
-                {tokenInfo.source === 'dexscreener'   && <span className="text-zinc-400 font-mono">DexScreener</span>}
-                {tokenInfo.source === 'onchain_reserves' && <span className="text-theme-light font-mono">Pons V2 Pool</span>}
-                {tokenInfo.source === 'onchain_v3'    && <span className="text-theme-light font-mono">Sushi V3 Pool</span>}
-                {tokenInfo.source === 'not_found'      && <span className="text-rose-400">Pool not found</span>}
-              </span>
-            )}
+        <div className="bg-[#121519] border-2 border-zinc-700 rounded-lg p-3 shadow-[2px_2px_0px_0px_#000000]">
+          <div className="flex flex-wrap items-center justify-between gap-1 mb-1.5">
+            <span className="text-xs font-black uppercase text-zinc-400">// YOU_RECEIVE (EST)</span>
           </div>
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="flex-1 min-w-0 text-xl sm:text-2xl font-bold text-white font-mono truncate">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0 text-xl font-black text-theme-light truncate">
               {tokenInfo && amountNum > 0 && output > 0 ? fmt(output) : '0.0'}
             </div>
-            <div className="flex items-center gap-1.5 bg-[#09110d] border border-white/[0.08] rounded-xl px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-bold text-white select-none flex-shrink-0">
-              <SparkleIcon size={16} className="flex-shrink-0" />
+            <div className="flex items-center gap-1.5 bg-black border border-zinc-700 rounded px-2.5 py-1 text-xs font-black text-white select-none flex-shrink-0">
+              <SparkleIcon size={14} className="flex-shrink-0" />
               <span>{toSymbol}</span>
             </div>
           </div>
@@ -757,28 +748,24 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
 
         {/* Rate summary */}
         {tokenInfo && amountNum > 0 && output > 0 && (
-          <div className="bg-black border border-white/[0.06] rounded-xl p-3 flex flex-col gap-1.5 text-xs text-zinc-400 font-mono">
+          <div className="bg-black border-2 border-zinc-800 rounded-lg p-2.5 flex flex-col gap-1 text-[11px] text-zinc-400 font-mono">
             <div className="flex justify-between">
-              <span>Market Rate</span>
-              <span className="text-zinc-200 font-medium">
+              <span>MARKET RATE:</span>
+              <span className="text-white font-bold">
                 {tokenInfo.priceNative > 0
                   ? isBuy
-                    ? `1 ETH â‰ˆ ${fmt(1 / tokenInfo.priceNative, 0)} ${tokenInfo.symbol}`
-                    : `1 ${tokenInfo.symbol} â‰ˆ ${tokenInfo.priceNative < 0.0001 ? tokenInfo.priceNative.toFixed(10) : tokenInfo.priceNative.toFixed(6)} ETH`
-                  : 'â€”'}
+                    ? `1 ETH ≈ ${fmt(1 / tokenInfo.priceNative, 0)} ${tokenInfo.symbol}`
+                    : `1 ${tokenInfo.symbol} ≈ ${tokenInfo.priceNative < 0.0001 ? tokenInfo.priceNative.toFixed(10) : tokenInfo.priceNative.toFixed(6)} ETH`
+                  : '—'}
               </span>
             </div>
             <div className="flex justify-between">
-              <span>Pool Fee</span>
-              <span className="text-zinc-200 font-medium">{tokenInfo.poolFee / 10000}%</span>
+              <span>POOL FEE:</span>
+              <span className="text-zinc-200 font-bold">{tokenInfo.poolFee / 10000}%</span>
             </div>
             <div className="flex justify-between">
-              <span>Min. Received ({slippage}% slippage)</span>
-              <span className="text-zinc-200 font-medium">{fmt(minimum)} {toSymbol}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Estimated Gas</span>
-              <span className="text-emerald-400 font-medium">~0.0001 ETH</span>
+              <span>MIN. RECEIVED ({slippage}% SLIP):</span>
+              <span className="text-theme-light font-bold">{fmt(minimum)} {toSymbol}</span>
             </div>
           </div>
         )}
@@ -789,26 +776,23 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
             variant="primary"
             onClick={handleLogin}
             loading={loggingIn}
-            className="w-full text-sm font-semibold py-3 gap-2"
+            className="w-full text-xs font-black py-3 uppercase"
           >
-            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" aria-hidden>
-              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.859L1.506 2.25h6.953l4.256 5.625 5.529-5.625Zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-            </svg>
-            <span>Log in with X to Swap</span>
+            CONNECT WALLET TO SWAP
           </Button>
         ) : !tokenInfo ? (
-          <Button variant="secondary" disabled className="w-full">
-            Enter Token Contract Address
+          <Button variant="secondary" disabled className="w-full py-2.5 text-xs font-black opacity-60">
+            ENTER TOKEN CONTRACT ADDRESS
           </Button>
         ) : !hasPrice ? (
-          <Button variant="secondary" disabled className="w-full">
+          <Button variant="secondary" disabled className="w-full py-2.5 text-xs font-black opacity-60">
             {tokenInfo.source === 'not_found'
-              ? 'Pool not yet created on DEX'
-              : 'Price not available'}
+              ? 'POOL NOT YET CREATED ON DEX'
+              : 'PRICE NOT AVAILABLE'}
           </Button>
         ) : !hasEnough && amountNum > 0 ? (
-          <Button variant="secondary" disabled className="w-full">
-            Insufficient {fromSymbol} Balance
+          <Button variant="secondary" disabled className="w-full py-2.5 text-xs font-black text-rose-400 border-rose-500">
+            INSUFFICIENT {fromSymbol} BALANCE
           </Button>
         ) : needsApproval ? (
           <Button
@@ -816,9 +800,9 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
             onClick={handleApprove}
             disabled={approving}
             loading={approving}
-            className="w-full text-sm font-semibold py-3"
+            className="w-full text-xs font-black py-3 uppercase"
           >
-            {approving ? 'Awaiting Wallet Approval...' : `1. Approve Access to ${tokenInfo.symbol}`}
+            {approving ? 'APPROVING...' : `1. APPROVE ${tokenInfo.symbol}`}
           </Button>
         ) : (
           <Button
@@ -826,9 +810,9 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
             onClick={handleSwap}
             disabled={!canSwap}
             loading={swapping}
-            className="w-full text-sm font-semibold py-3"
+            className="w-full text-xs font-black py-3 uppercase"
           >
-            {swapping ? 'Awaiting Wallet Confirmation...' : `Swap ${fromSymbol} → ${toSymbol}`}
+            {swapping ? 'SWAPPING...' : `SWAP ${fromSymbol} → ${toSymbol}`}
           </Button>
         )}
 

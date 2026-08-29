@@ -112,7 +112,7 @@ export default function TokenDetailPage({ params }: PageProps) {
 
   if (loading) {
     return (
-      <div className="flex flex-col min-h-screen bg-transparent text-zinc-100">
+      <div className="flex flex-col min-h-screen bg-transparent text-zinc-100 font-mono">
         <Navbar onLogout={async () => logout()} loggingOut={false} />
         <main className="flex-1 flex items-center justify-center min-h-[60vh]">
           <Spinner size="lg" />
@@ -124,23 +124,23 @@ export default function TokenDetailPage({ params }: PageProps) {
 
   if (!cleanCa || !token) {
     return (
-      <div className="flex flex-col min-h-screen bg-transparent text-zinc-100">
+      <div className="flex flex-col min-h-screen bg-transparent text-zinc-100 font-mono">
         <Navbar onLogout={async () => logout()} loggingOut={false} />
         <main className="flex-1 max-w-4xl mx-auto px-4 py-16 text-center flex flex-col items-center justify-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-black border border-white/[0.08] flex items-center justify-center text-zinc-500">
+          <div className="w-16 h-16 rounded-none bg-black border-2 border-white flex items-center justify-center text-zinc-400 shadow-[3px_3px_0px_0px_#ffffff]">
             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white">Token Not Found</h1>
-          <p className="text-sm text-zinc-400 max-w-md">
-            The token address <code className="text-emerald-400 font-mono">{rawAddress}</code> was not found on Robinhood Chain or has not been indexed yet.
+          <h1 className="text-xl font-black text-white uppercase">// TOKEN NOT FOUND</h1>
+          <p className="text-xs text-zinc-400 max-w-md font-sans">
+            The token address <code className="text-theme-light font-mono">{rawAddress}</code> was not found on Robinhood Chain.
           </p>
           <Link
             href="/coin"
-            className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs font-mono transition-all"
+            className="px-4 py-2 bg-[var(--theme-color)] text-black border-2 border-black font-black text-xs uppercase shadow-[3px_3px_0px_0px_#ffffff] active:translate-x-0.5 active:translate-y-0.5 transition-all"
           >
-            Back to Coins Explorer
+            EXPLORE TOKENS
           </Link>
         </main>
         <Footer />
@@ -157,7 +157,7 @@ export default function TokenDetailPage({ params }: PageProps) {
   const explorerUrl = `https://robinhoodchain.blockscout.com/token/${token.tokenAddress}`
 
   return (
-    <div className="flex flex-col min-h-screen bg-transparent text-zinc-100 animate-fadeIn">
+    <div className="flex flex-col min-h-screen bg-transparent text-zinc-100 font-mono animate-fadeIn">
       {/* Navigation */}
       <Navbar
         onLogout={async () => {
@@ -171,38 +171,35 @@ export default function TokenDetailPage({ params }: PageProps) {
       <main className="flex-1 w-full max-w-[1720px] mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8">
         <div className="max-w-7xl mx-auto flex flex-col gap-6">
           {/* Breadcrumb & Quick Nav */}
-          <div className="flex items-center justify-between gap-3 text-xs font-mono">
+          <div className="flex items-center justify-between gap-3 text-xs">
             <Link
               href="/coin"
-              className="flex items-center gap-1.5 text-zinc-400 hover:text-emerald-300 transition-colors"
+              className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors uppercase font-bold"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
               </svg>
-              <span>Back to Explorer</span>
+              <span>[BACK TO COINS]</span>
             </Link>
 
-            <span className="flex items-center gap-1.5 text-zinc-400 liquid-pill px-3 py-1 rounded-full">
+            <span className="flex items-center gap-1.5 text-zinc-300 bg-[#121519] border-2 border-zinc-800 px-3 py-1 rounded text-xs font-black uppercase shadow-[2px_2px_0px_0px_#000000]">
               <span
-                className="w-1.5 h-1.5 rounded-full animate-pulse"
-                style={{ backgroundColor: theme.color, boxShadow: `0 0 8px ${theme.color}` }}
+                className="w-1.5 h-1.5 rounded-none"
+                style={{ backgroundColor: theme.color }}
               />
-              Robinhood Chain (4663)
+              ROBINHOOD CHAIN [4663]
             </span>
           </div>
 
-          {/* ── Top Header Profile Banner ────────────────────────────────────────── */}
-          <div className="liquid-glass rounded-3xl p-5 sm:p-7 shadow-2xl relative overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div
-              className="absolute top-0 right-0 w-72 h-72 rounded-full blur-3xl pointer-events-none transition-all duration-700"
-              style={{ background: theme.glow }}
-            />
-
+          {/* Top Header Profile Banner */}
+          <div
+            style={{
+              boxShadow: `5px 5px 0px 0px ${theme.color}`,
+            }}
+            className="bg-[#0e1115] border-2 border-white rounded-xl p-5 sm:p-7 relative overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-6"
+          >
             <div className="flex items-start sm:items-center gap-4 sm:gap-5">
-              <div
-                style={{ borderColor: `${theme.primary}55` }}
-                className="w-16 sm:w-20 h-16 sm:h-20 rounded-2xl bg-black border overflow-hidden relative flex-shrink-0 flex items-center justify-center shadow-xl"
-              >
+              <div className="w-16 sm:w-20 h-16 sm:h-20 rounded-lg bg-black border-2 border-white overflow-hidden relative flex-shrink-0 flex items-center justify-center shadow-lg">
                 <TokenImage
                   src={token.logo}
                   alt={token.symbol}
@@ -214,27 +211,27 @@ export default function TokenDetailPage({ params }: PageProps) {
 
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <h1 className="text-xl sm:text-3xl font-extrabold text-white tracking-tight">
+                  <h1 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">
                     {token.name}
                   </h1>
-                  <span className="text-xs sm:text-sm font-mono font-bold text-theme-light liquid-pill px-2.5 py-0.5 rounded-full border-theme">
+                  <span className="text-xs sm:text-sm font-black text-black bg-[var(--theme-color)] px-2.5 py-0.5 border border-black uppercase">
                     ${token.symbol}
                   </span>
                   <span
-                    className={`text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full border uppercase font-mono ${
+                    className={`text-[10px] sm:text-xs font-black px-2.5 py-0.5 border uppercase ${
                       isGraduated
-                        ? 'bg-purple-500/10 text-purple-400 border-purple-500/30'
-                        : 'liquid-pill-active'
+                        ? 'bg-purple-950 text-purple-300 border-purple-400'
+                        : 'bg-zinc-800 text-zinc-200 border-zinc-700'
                     }`}
                   >
-                    {isGraduated ? 'Uniswap v4' : 'Bonding Curve'}
+                    {isGraduated ? 'UNISWAP V4' : 'BONDING CURVE'}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-3 text-xs font-mono text-zinc-400 flex-wrap">
+                <div className="flex items-center gap-3 text-xs text-zinc-400 flex-wrap">
                   <div className="flex items-center gap-1.5">
                     <span>CA:</span>
-                    <code className="text-theme-light font-bold bg-black/60 px-2 py-0.5 rounded border border-white/[0.06]">
+                    <code className="text-white font-bold bg-[#121519] border border-zinc-700 px-2 py-0.5 rounded">
                       {token.tokenAddress.slice(0, 6)}...{token.tokenAddress.slice(-4)}
                     </code>
                     <button
@@ -248,8 +245,8 @@ export default function TokenDetailPage({ params }: PageProps) {
                     </button>
                   </div>
 
-                  <span className="text-zinc-600">&bull;</span>
-                  <span>Supply: 1B Fixed</span>
+                  <span className="text-zinc-600">/</span>
+                  <span>SUPPLY: 1B FIXED</span>
                 </div>
               </div>
             </div>
@@ -261,9 +258,9 @@ export default function TokenDetailPage({ params }: PageProps) {
                   href={token.socials.twitter.startsWith('http') ? token.socials.twitter : `https://x.com/${token.socials.twitter.replace('@', '')}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/[0.08] text-zinc-300 hover:text-white text-xs font-mono transition-colors"
+                  className="px-2.5 py-1 rounded bg-[#181b20] hover:bg-white text-zinc-300 hover:text-black border border-zinc-700 hover:border-white text-xs font-black uppercase transition-all shadow-[2px_2px_0px_0px_#000000]"
                 >
-                  Twitter
+                  TWITTER
                 </a>
               )}
               {token.socials?.telegram && (
@@ -271,9 +268,9 @@ export default function TokenDetailPage({ params }: PageProps) {
                   href={token.socials.telegram.startsWith('http') ? token.socials.telegram : `https://t.me/${token.socials.telegram.replace('@', '')}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/[0.08] text-zinc-300 hover:text-white text-xs font-mono transition-colors"
+                  className="px-2.5 py-1 rounded bg-[#181b20] hover:bg-white text-zinc-300 hover:text-black border border-zinc-700 hover:border-white text-xs font-black uppercase transition-all shadow-[2px_2px_0px_0px_#000000]"
                 >
-                  Telegram
+                  TELEGRAM
                 </a>
               )}
               {token.socials?.website && (
@@ -281,18 +278,18 @@ export default function TokenDetailPage({ params }: PageProps) {
                   href={token.socials.website.startsWith('http') ? token.socials.website : `https://${token.socials.website}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/[0.08] text-zinc-300 hover:text-white text-xs font-mono transition-colors"
+                  className="px-2.5 py-1 rounded bg-[#181b20] hover:bg-white text-zinc-300 hover:text-black border border-zinc-700 hover:border-white text-xs font-black uppercase transition-all shadow-[2px_2px_0px_0px_#000000]"
                 >
-                  Website
+                  WEBSITE
                 </a>
               )}
               <a
                 href={explorerUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/[0.08] hover:border-theme text-zinc-300 hover:text-white text-xs font-mono transition-colors flex items-center gap-1"
+                className="px-2.5 py-1 rounded bg-[#181b20] hover:bg-white text-zinc-300 hover:text-black border border-zinc-700 hover:border-white text-xs font-black uppercase transition-all shadow-[2px_2px_0px_0px_#000000] flex items-center gap-1"
               >
-                <span>Blockscout</span>
+                <span>BLOCKSCOUT</span>
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
@@ -301,35 +298,32 @@ export default function TokenDetailPage({ params }: PageProps) {
               {/* Creator Fee Action Button */}
               <button
                 onClick={() => setClaimFeesOpen(true)}
-                className="px-3.5 py-1.5 rounded-xl liquid-pill text-theme-light border-theme hover:brightness-110 text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-1 rounded bg-[var(--theme-color)] text-black border border-black shadow-[2px_2px_0px_0px_#000000] text-xs font-black uppercase transition-all active:translate-x-0.5 active:translate-y-0.5 cursor-pointer flex items-center gap-1"
               >
-                <svg className="w-3.5 h-3.5" style={{ color: theme.color }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Creator Fee</span>
+                <span>ROYALTIES</span>
               </button>
             </div>
           </div>
 
-          {/* ── Key Metrics Grid ─────────────────────────────────────────────────── */}
+          {/* Key Metrics Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 font-mono">
             {/* Market Cap */}
-            <div className="liquid-glass rounded-2xl p-4 flex flex-col gap-1">
-              <span className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-wider">
-                Market Cap (FDV)
+            <div className="bg-[#0e1115] border-2 border-white rounded-lg p-4 flex flex-col gap-1 shadow-[3px_3px_0px_0px_#000000]">
+              <span className="text-[10px] text-zinc-400 uppercase font-black">
+                // MARKET_CAP_FDV
               </span>
-              <span className="text-lg sm:text-2xl font-extrabold text-white">
+              <span className="text-lg sm:text-2xl font-black text-white">
                 ${marketCapUsd}
               </span>
               <span className="text-[11px] text-zinc-400">{marketCapEth} ETH</span>
             </div>
 
             {/* Current Price */}
-            <div className="liquid-glass rounded-2xl p-4 flex flex-col gap-1">
-              <span className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-wider">
-                Token Price
+            <div className="bg-[#0e1115] border-2 border-white rounded-lg p-4 flex flex-col gap-1 shadow-[3px_3px_0px_0px_#000000]">
+              <span className="text-[10px] text-zinc-400 uppercase font-black">
+                // TOKEN_PRICE
               </span>
-              <span className="text-lg sm:text-2xl font-extrabold text-theme-light truncate">
+              <span className="text-lg sm:text-2xl font-black text-theme-light truncate">
                 ${token.priceUsd < 0.0001 ? token.priceUsd.toFixed(8) : token.priceUsd.toFixed(4)}
               </span>
               <span className="text-[11px] text-zinc-400 truncate">
@@ -338,51 +332,50 @@ export default function TokenDetailPage({ params }: PageProps) {
             </div>
 
             {/* Graduation Progress */}
-            <div className="liquid-glass rounded-2xl p-4 flex flex-col gap-1.5 col-span-2 sm:col-span-1">
+            <div className="bg-[#0e1115] border-2 border-white rounded-lg p-4 flex flex-col gap-1.5 col-span-2 sm:col-span-1 shadow-[3px_3px_0px_0px_#000000]">
               <div className="flex justify-between items-center text-xs">
-                <span className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-wider">
-                  Graduation
+                <span className="text-[10px] text-zinc-400 uppercase font-black">
+                  // GRADUATION
                 </span>
-                <span className="font-bold text-theme-light">{progressPct}%</span>
+                <span className="font-black text-white">{progressPct}%</span>
               </div>
-              <div className="w-full h-2 bg-black/60 rounded-full overflow-hidden border border-white/[0.06]">
+              <div className="w-full h-2.5 bg-black border border-zinc-700 rounded-none overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-all duration-500"
+                  className="h-full rounded-none"
                   style={{
                     width: `${Math.max(3, parseFloat(progressPct))}%`,
-                    background: `linear-gradient(to right, ${theme.secondary}, ${theme.primary}, ${theme.color})`,
-                    boxShadow: `0 0 8px ${theme.color}`,
+                    backgroundColor: theme.color,
                   }}
                 />
               </div>
-              <span className="text-[10px] text-zinc-400 mt-0.5">
-                {raisedEth.toFixed(3)} / {targetEth.toFixed(1)} ETH Raised
+              <span className="text-[10px] text-zinc-400">
+                {raisedEth.toFixed(3)} / {targetEth.toFixed(1)} ETH RAISED
               </span>
             </div>
 
             {/* Creator Tax */}
-            <div className="liquid-glass rounded-2xl p-4 flex flex-col justify-between gap-1">
+            <div className="bg-[#0e1115] border-2 border-white rounded-lg p-4 flex flex-col justify-between gap-1 shadow-[3px_3px_0px_0px_#000000]">
               <div className="flex justify-between items-start">
                 <div className="flex flex-col">
-                  <span className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-wider">
-                    Creator Tax
+                  <span className="text-[10px] text-zinc-400 uppercase font-black">
+                    // CREATOR_TAX
                   </span>
-                  <span className="text-lg sm:text-2xl font-extrabold text-white">
+                  <span className="text-lg sm:text-2xl font-black text-white">
                     {(token.creatorTaxBps / 100).toFixed(1)}%
                   </span>
                 </div>
                 <button
                   onClick={() => setClaimFeesOpen(true)}
-                  className="px-2.5 py-1 rounded-lg liquid-pill text-theme-light border-theme hover:brightness-110 text-[11px] font-bold font-mono transition-colors cursor-pointer flex items-center gap-1"
+                  className="px-2 py-0.5 rounded bg-[var(--theme-color)] text-black border border-black shadow-[1px_1px_0px_0px_#000000] text-[10px] font-black uppercase cursor-pointer"
                 >
-                  Claim
+                  CLAIM
                 </button>
               </div>
-              <span className="text-[11px] text-zinc-500">Non-custodial escrow</span>
+              <span className="text-[10px] text-zinc-500 uppercase font-bold">NON-CUSTODIAL ESCROW</span>
             </div>
           </div>
 
-          {/* ── Main 2-Column Split: Chart & Info (Left) + Swap Widget (Right) ───── */}
+          {/* Main 2-Column Split: Chart & Info (Left) + Swap Widget (Right) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
             {/* Left Column: Interactive Price Chart & Tabs */}
             <div className="lg:col-span-7 flex flex-col gap-5">
@@ -395,61 +388,66 @@ export default function TokenDetailPage({ params }: PageProps) {
               />
 
               {/* Overview & Information Box */}
-              <div className="liquid-glass rounded-3xl p-5 sm:p-7 shadow-2xl flex flex-col gap-4">
-                <div className="flex items-center gap-3 border-b border-white/[0.06] pb-3">
+              <div
+                style={{
+                  boxShadow: `4px 4px 0px 0px #000000`,
+                }}
+                className="bg-[#0e1115] border-2 border-white rounded-xl p-5 sm:p-6 flex flex-col gap-4"
+              >
+                <div className="flex items-center gap-3 border-b-2 border-zinc-800 pb-3">
                   <button
                     onClick={() => setActiveTab('overview')}
                     style={activeTab === 'overview' ? { color: theme.color, borderColor: theme.color } : undefined}
-                    className={`text-xs sm:text-sm font-bold font-mono transition-colors cursor-pointer ${
+                    className={`text-xs font-black uppercase transition-colors cursor-pointer ${
                       activeTab === 'overview'
-                        ? 'border-b-2 pb-3 -mb-3.5 font-extrabold'
+                        ? 'border-b-2 pb-3 -mb-3.5 text-theme-light'
                         : 'text-zinc-400 hover:text-white'
                     }`}
                   >
-                    Overview & Bio
+                    // OVERVIEW
                   </button>
                   <button
                     onClick={() => setActiveTab('trades')}
                     style={activeTab === 'trades' ? { color: theme.color, borderColor: theme.color } : undefined}
-                    className={`text-xs sm:text-sm font-bold font-mono transition-colors cursor-pointer ${
+                    className={`text-xs font-black uppercase transition-colors cursor-pointer ${
                       activeTab === 'trades'
-                        ? 'border-b-2 pb-3 -mb-3.5 font-extrabold'
+                        ? 'border-b-2 pb-3 -mb-3.5 text-theme-light'
                         : 'text-zinc-400 hover:text-white'
                     }`}
                   >
-                    Contract Details
+                    // CONTRACT_DETAILS
                   </button>
                 </div>
 
                 {activeTab === 'overview' ? (
-                  <div className="flex flex-col gap-3 text-xs sm:text-sm text-zinc-300 leading-relaxed">
+                  <div className="flex flex-col gap-3 text-xs sm:text-sm text-zinc-300 leading-relaxed font-sans">
                     <p className="whitespace-pre-wrap">
                       {token.description || `${token.name} ($${token.symbol}) is a fair-launched token on Robinhood Chain using the Pons v2 Bonding Curve protocol.`}
                     </p>
 
-                    <div className="bg-black/50 border border-white/[0.06] rounded-2xl p-4 flex flex-col gap-2 font-mono text-xs text-zinc-400 mt-2">
+                    <div className="bg-[#121519] border-2 border-zinc-800 rounded-lg p-3.5 flex flex-col gap-2 font-mono text-xs text-zinc-400 mt-2">
                       <div className="flex justify-between">
-                        <span>Total Fixed Supply:</span>
-                        <span className="text-white font-bold">1,000,000,000 ${token.symbol}</span>
+                        <span>TOTAL FIXED SUPPLY:</span>
+                        <span className="text-white font-black">1,000,000,000 ${token.symbol}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Curve Liquidity:</span>
-                        <span className="text-theme-light font-bold">100% Minted to Curve</span>
+                        <span>CURVE LIQUIDITY:</span>
+                        <span className="text-theme-light font-black">100% MINTED TO CURVE</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Anti-Snipe Protection:</span>
-                        <span className="text-zinc-200">Decaying Tax Shield Enabled</span>
+                        <span>ANTI-SNIPER PROTECTION:</span>
+                        <span className="text-zinc-200">DECAYING TAX SHIELD</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Graduation DEX:</span>
-                        <span className="text-purple-300">Uniswap v4 (Permanently Locked)</span>
+                        <span>GRADUATION DEX:</span>
+                        <span className="text-purple-300">UNISWAP V4 (LOCKED)</span>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-3 font-mono text-xs">
-                    <div className="flex items-center justify-between bg-black/60 p-3 rounded-xl border border-white/[0.06]">
-                      <span className="text-zinc-400">Token Address:</span>
+                  <div className="flex flex-col gap-2.5 font-mono text-xs">
+                    <div className="flex items-center justify-between bg-[#121519] p-3 rounded-lg border-2 border-zinc-800">
+                      <span className="text-zinc-400">TOKEN ADDRESS:</span>
                       <div className="flex items-center gap-1.5">
                         <code className="text-theme-light font-bold">{token.tokenAddress}</code>
                         <button
@@ -463,8 +461,8 @@ export default function TokenDetailPage({ params }: PageProps) {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between bg-black/60 p-3 rounded-xl border border-white/[0.06]">
-                      <span className="text-zinc-400">Curve Contract:</span>
+                    <div className="flex items-center justify-between bg-[#121519] p-3 rounded-lg border-2 border-zinc-800">
+                      <span className="text-zinc-400">CURVE CONTRACT:</span>
                       <div className="flex items-center gap-1.5">
                         <code className="text-zinc-300">{token.curveAddress}</code>
                         <button
@@ -478,8 +476,8 @@ export default function TokenDetailPage({ params }: PageProps) {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between bg-black/60 p-3 rounded-xl border border-white/[0.06]">
-                      <span className="text-zinc-400">Creator Wallet:</span>
+                    <div className="flex items-center justify-between bg-[#121519] p-3 rounded-lg border-2 border-zinc-800">
+                      <span className="text-zinc-400">CREATOR WALLET:</span>
                       <div className="flex items-center gap-1.5">
                         <code className="text-zinc-400">{token.creatorAddress}</code>
                         <button

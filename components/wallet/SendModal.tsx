@@ -47,7 +47,7 @@ export default function SendModal({ open, onClose }: SendModalProps) {
 
       toast('Sending ETH transaction...')
 
-      const txHash = await walletClient.sendTransaction({
+      await walletClient.sendTransaction({
         account,
         to: targetAddress,
         value: valueInWei,
@@ -90,49 +90,49 @@ export default function SendModal({ open, onClose }: SendModalProps) {
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title="Send ETH — Robinhood Chain">
-      <div className="flex flex-col gap-4">
+    <Modal open={open} onClose={handleClose} title="// SEND_NATIVE_ETH">
+      <div className="flex flex-col gap-4 font-mono select-none">
         {/* Network indicator */}
-        <div className="flex items-center justify-between text-xs text-zinc-400 bg-white/[0.02] px-3.5 py-2.5 rounded-xl border border-white/[0.08]">
-          <span className="flex items-center gap-1.5 text-zinc-300 font-medium">
+        <div className="flex items-center justify-between text-xs text-zinc-300 bg-[#121519] px-3.5 py-2 rounded-lg border-2 border-zinc-800 shadow-[2px_2px_0px_0px_#000000]">
+          <span className="flex items-center gap-1.5 font-black uppercase text-white">
             <span
-              className="w-1.5 h-1.5 rounded-full animate-pulse"
-              style={{ backgroundColor: theme.color, boxShadow: `0 0 8px ${theme.color}` }}
+              className="w-1.5 h-1.5 rounded-none"
+              style={{ backgroundColor: theme.color }}
             />
-            Robinhood Chain Mainnet
+            ROBINHOOD MAINNET
           </span>
           {balance && (
-            <span className="font-mono text-zinc-400">
-              Balance: <strong className="text-theme-light font-bold">{parseFloat(balance.formatted).toFixed(4)} ETH</strong>
+            <span className="text-[11px] text-zinc-400">
+              BAL: <strong className="text-theme-light font-black">{parseFloat(balance.formatted).toFixed(4)} ETH</strong>
             </span>
           )}
         </div>
 
         {/* Recipient Address */}
         <div>
-          <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-            Recipient Address
+          <label className="block text-xs font-black uppercase text-zinc-300 mb-1.5">
+            RECIPIENT ADDRESS
           </label>
           <input
             type="text"
             placeholder="0x... (Robinhood Chain address)"
             value={to}
             onChange={(e) => setTo(e.target.value.trim())}
-            className="w-full bg-[#050b08] border border-white/[0.08] focus:border-theme rounded-xl px-3.5 py-2.5 text-xs font-mono text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-[var(--theme-color)] transition-all"
+            className="w-full bg-[#121519] border-2 border-zinc-700 focus:border-white rounded-lg px-3.5 py-2 text-xs font-mono text-white placeholder-zinc-500 shadow-[2px_2px_0px_0px_#000000] focus:shadow-[3px_3px_0px_0px_#ffffff] focus:outline-none transition-all"
           />
           {to && !isValidAddress && (
-            <p className="text-xs text-rose-400 mt-1">Invalid Ethereum / Robinhood address</p>
+            <p className="text-[11px] text-rose-400 mt-1 uppercase font-bold">Invalid address</p>
           )}
         </div>
 
         {/* Amount */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-semibold text-zinc-300">Amount (ETH)</label>
+            <label className="text-xs font-black uppercase text-zinc-300">AMOUNT (ETH)</label>
             <button
               type="button"
               onClick={setMax}
-              className="text-xs text-theme-light font-bold px-2 py-0.5 rounded liquid-pill border-theme font-mono cursor-pointer"
+              className="text-[10px] text-black font-black px-2 py-0.5 bg-[var(--theme-color)] border border-black shadow-[1px_1px_0px_0px_#000000] cursor-pointer"
             >
               MAX
             </button>
@@ -145,21 +145,21 @@ export default function SendModal({ open, onClose }: SendModalProps) {
               onChange={(e) => setAmount(e.target.value)}
               step="any"
               min="0"
-              className="w-full bg-[#050b08] border border-white/[0.08] focus:border-theme rounded-xl px-3.5 py-2.5 text-sm font-bold text-white placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-[var(--theme-color)] pr-16 transition-all font-mono"
+              className="w-full bg-[#121519] border-2 border-zinc-700 focus:border-white rounded-lg px-3.5 py-2 text-xs font-mono font-bold text-white placeholder-zinc-500 shadow-[2px_2px_0px_0px_#000000] focus:shadow-[3px_3px_0px_0px_#ffffff] focus:outline-none transition-all pr-14"
             />
-            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-theme-light font-mono">
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-theme-light font-mono">
               ETH
             </span>
           </div>
           {amount && !hasEnoughBalance && (
-            <p className="text-xs text-rose-400 mt-1">Insufficient ETH balance</p>
+            <p className="text-[11px] text-rose-400 mt-1 uppercase font-bold">Insufficient ETH balance</p>
           )}
         </div>
 
         {/* Actions */}
         <div className="grid grid-cols-2 gap-3 pt-2">
           <Button variant="secondary" onClick={handleClose} disabled={sending}>
-            Cancel
+            CANCEL
           </Button>
           <Button
             variant="primary"
@@ -167,7 +167,7 @@ export default function SendModal({ open, onClose }: SendModalProps) {
             disabled={!canSend}
             loading={sending}
           >
-            {sending ? 'Awaiting Wallet...' : 'Send ETH'}
+            {sending ? 'SENDING...' : 'SEND ETH'}
           </Button>
         </div>
       </div>

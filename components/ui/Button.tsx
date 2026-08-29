@@ -19,25 +19,25 @@ export default function Button({
   ...props
 }: ButtonProps) {
   const base =
-    'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-white/20 cursor-pointer select-none'
+    'inline-flex items-center justify-center font-mono font-bold tracking-tight rounded-lg uppercase select-none transition-all duration-100 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none cursor-pointer'
 
   const variants = {
     primary:
-      'liquid-btn-primary text-white font-bold',
+      'bg-[var(--theme-color)] text-black border-2 border-white shadow-[3px_3px_0px_0px_#ffffff] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_0px_#ffffff] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none',
     secondary:
-      'liquid-btn-secondary text-zinc-100 font-semibold',
+      'bg-[#181b20] text-zinc-100 border-2 border-zinc-700 shadow-[3px_3px_0px_0px_#000000] hover:border-white hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none',
     ghost:
-      'bg-transparent hover:bg-white/[0.06] text-zinc-400 hover:text-white transition-colors',
+      'bg-transparent hover:bg-white/[0.08] text-zinc-300 hover:text-white border-2 border-transparent hover:border-zinc-700 transition-colors',
     danger:
-      'liquid-btn-danger text-rose-100 font-semibold',
+      'bg-rose-600 text-white border-2 border-rose-300 shadow-[3px_3px_0px_0px_#000000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none',
     accent:
-      'liquid-pill-active text-white font-bold',
+      'bg-[var(--theme-color)] text-black border-2 border-white shadow-[3px_3px_0px_0px_#000000] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none',
   }
 
   const sizes = {
     sm: 'px-3 py-1.5 text-xs',
-    md: 'px-4 py-2 text-sm',
-    lg: 'px-6 py-3 text-base',
+    md: 'px-4 py-2 text-xs sm:text-sm',
+    lg: 'px-6 py-3 text-sm sm:text-base',
   }
 
   return (

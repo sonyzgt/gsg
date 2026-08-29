@@ -91,11 +91,11 @@ export default function ClaimFeesModal({ open, onClose }: ClaimFeesModalProps) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Creator Fee Escrow">
-      <div className="flex flex-col gap-4">
-        <div className="bg-[#09110d] border border-white/10 rounded-2xl p-4 flex items-start gap-3">
+    <Modal open={open} onClose={onClose} title="// CREATOR_FEE_ESCROW">
+      <div className="flex flex-col gap-4 font-mono select-none">
+        <div className="bg-[#121519] border-2 border-zinc-800 rounded-lg p-3.5 flex items-start gap-3 shadow-[2px_2px_0px_0px_#000000]">
           <div
-            className="w-8 h-8 rounded-xl liquid-pill flex items-center justify-center flex-shrink-0"
+            className="w-7 h-7 rounded-none bg-black border border-white flex items-center justify-center flex-shrink-0 shadow-[1px_1px_0px_0px_#ffffff]"
             style={{ color: theme.color }}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -103,25 +103,25 @@ export default function ClaimFeesModal({ open, onClose }: ClaimFeesModalProps) {
             </svg>
           </div>
           <div className="text-xs">
-            <p className="font-bold text-zinc-100">Non-Custodial Fee Escrow</p>
-            <p className="text-zinc-400 mt-0.5 leading-relaxed">
-              Creator royalties and curve swap shares accumulate automatically in the Fee Escrow contract on Robinhood Chain. Withdraw anytime on your own schedule.
+            <p className="font-black text-white uppercase">NON-CUSTODIAL ESCROW</p>
+            <p className="text-zinc-400 mt-0.5 font-sans leading-relaxed text-[11px]">
+              Creator royalties and curve swap shares accumulate automatically in the Fee Escrow contract. Withdraw anytime on your schedule.
             </p>
           </div>
         </div>
 
         {/* Balance Card */}
-        <div className="bg-[#09110d]/80 border border-white/[0.08] p-5 rounded-2xl flex flex-col gap-1 text-center">
-          <span className="text-xs text-zinc-400 font-semibold uppercase tracking-wider">
-            Unclaimed Creator Royalties
+        <div className="bg-[#121519] border-2 border-zinc-700 p-5 rounded-lg flex flex-col gap-1 text-center shadow-[3px_3px_0px_0px_#000000]">
+          <span className="text-[10px] text-zinc-400 font-black uppercase tracking-wider">
+            // UNCLAIMED_ROYALTIES
           </span>
           <div className="flex items-baseline justify-center gap-2 mt-1">
-            <span className="text-3xl sm:text-4xl font-extrabold text-white font-mono">
+            <span className="text-3xl sm:text-4xl font-black text-white">
               {fetching ? '...' : claimableEth.toFixed(6)}
             </span>
-            <span className="font-bold font-mono text-lg text-theme-light">ETH</span>
+            <span className="font-black text-sm text-theme-light">ETH</span>
           </div>
-          <span className="text-[11px] text-zinc-500 font-mono mt-1">
+          <span className="text-[10px] text-zinc-500 mt-0.5">
             ≈ ${(claimableEth * 2500).toFixed(2)} USD
           </span>
         </div>
@@ -132,9 +132,9 @@ export default function ClaimFeesModal({ open, onClose }: ClaimFeesModalProps) {
           onClick={handleClaim}
           disabled={claimableWei === 0n || claiming || fetching}
           loading={claiming}
-          className="w-full py-3.5 text-sm font-bold"
+          className="w-full py-3 text-xs font-black"
         >
-          {claimableWei === 0n ? 'No Claimable Fees Available' : `Claim ${claimableEth.toFixed(4)} ETH to Wallet`}
+          {claimableWei === 0n ? 'NO CLAIMABLE FEES AVAILABLE' : `CLAIM ${claimableEth.toFixed(4)} ETH TO WALLET`}
         </Button>
       </div>
     </Modal>

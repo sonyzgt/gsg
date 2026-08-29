@@ -1,18 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --background: #000000;
+  --background: #08090a;
   --foreground: #f4f4f5;
   --theme-color: #10b981;
   --theme-light: #34d399;
   --theme-dark: #059669;
   --theme-glow: rgba(16, 185, 129, 0.45);
-  --theme-subtle: rgba(16, 185, 129, 0.15);
-  --theme-border: rgba(16, 185, 129, 0.4);
+  --theme-subtle: rgba(16, 185, 129, 0.12);
+  --theme-border: #10b981;
   --accent: var(--theme-color);
   --accent-hover: var(--theme-dark);
-  --surface: #050907;
-  --surface-border: rgba(255, 255, 255, 0.08);
+  --surface: #0e1114;
+  --surface-border: #27272a;
+  --brutal-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 1);
+  --brutal-shadow-theme: 4px 4px 0px 0px var(--theme-color);
+  --brutal-shadow-white: 4px 4px 0px 0px #ffffff;
 }
 
 @theme inline {
@@ -24,62 +27,249 @@
 }
 
 body {
-  background: #000000;
+  background-color: #08090a;
   color: #f4f4f5;
   font-family: var(--font-sans);
   min-height: 100vh;
   overflow-x: hidden;
 }
 
-/* Custom scrollbars */
+/* Custom scrollbars - Minimalist Brutalist */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.4);
+  background: #000000;
+  border-left: 1px solid #27272a;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 9999px;
+  background: #3f3f46;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--theme-color);
 }
 
-/* Cinematic text animations */
-@keyframes cinematicIn {
-  0% {
-    opacity: 0;
-    transform: translateY(28px) scale(0.96);
-    filter: blur(14px);
-  }
-  60% {
-    filter: blur(0px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0px);
-  }
+/* ── Modern Brutalism & Minimalist Brutalism Design System ── */
+
+/* Brutalist Main Card / Container */
+.brutal-card,
+.liquid-glass {
+  background-color: #0d0f12;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(0,0,0,0.5);
+  position: relative;
+  transition: all 0.15s ease-in-out;
 }
 
-@keyframes cinematicOut {
-  0% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0px);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-24px) scale(1.02);
-    filter: blur(14px);
-  }
+.brutal-card-highlight,
+.liquid-glass:hover {
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
+/* Brutalist Interactive Card (Token Grid / Items) */
+.brutal-card-interactive,
+.liquid-glass-card {
+  background-color: #0f1216;
+  border: 2px solid #27272a;
+  border-radius: 12px;
+  box-shadow: 3px 3px 0px 0px #000000;
+  position: relative;
+  transition: transform 0.12s ease-out, box-shadow 0.12s ease-out, border-color 0.12s ease-out;
+}
+
+.brutal-card-interactive:hover,
+.liquid-glass-card:hover {
+  transform: translate(-2px, -2px);
+  border-color: var(--theme-color);
+  box-shadow: 5px 5px 0px 0px var(--theme-color);
+}
+
+.brutal-card-interactive:active,
+.liquid-glass-card:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px 0px var(--theme-color);
+}
+
+/* Brutalist Pill / Tab / Filter Badge */
+.brutal-pill,
+.liquid-pill {
+  background-color: #121519;
+  border: 1.5px solid #27272a;
+  border-radius: 8px;
+  box-shadow: 2px 2px 0px 0px #000000;
+  transition: all 0.12s ease-out;
+}
+
+.brutal-pill:hover,
+.liquid-pill:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px 0px #000000;
+}
+
+.brutal-pill-active,
+.liquid-pill-active {
+  background-color: var(--theme-color) !important;
+  color: #000000 !important;
+  font-weight: 800 !important;
+  border: 1.5px solid #ffffff !important;
+  box-shadow: 3px 3px 0px 0px #000000 !important;
+}
+
+.brutal-pill-active *,
+.liquid-pill-active * {
+  color: #000000 !important;
+}
+
+/* Brutalist Buttons (Tactile 3D Hard Shadow) */
+.brutal-btn-primary,
+.liquid-btn-primary {
+  background-color: var(--theme-color) !important;
+  color: #000000 !important;
+  font-weight: 800 !important;
+  border: 2px solid #ffffff !important;
+  border-radius: 10px !important;
+  box-shadow: 3px 3px 0px 0px #ffffff !important;
+  transition: transform 0.1s ease-out, box-shadow 0.1s ease-out !important;
+}
+
+.brutal-btn-primary:hover,
+.liquid-btn-primary:hover {
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 5px 5px 0px 0px #ffffff !important;
+}
+
+.brutal-btn-primary:active,
+.liquid-btn-primary:active {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 0px 0px 0px 0px transparent !important;
+}
+
+/* White Theme Button Override */
+[data-theme="white"] .brutal-btn-primary,
+[data-theme="white"] .liquid-btn-primary {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 3px 3px 0px 0px #71717a !important;
+}
+
+[data-theme="white"] .brutal-btn-primary:hover,
+[data-theme="white"] .liquid-btn-primary:hover {
+  box-shadow: 5px 5px 0px 0px #a1a1aa !important;
+}
+
+.brutal-btn-secondary,
+.liquid-btn-secondary {
+  background-color: #181b20 !important;
+  color: #f4f4f5 !important;
+  font-weight: 700 !important;
+  border: 2px solid #3f3f46 !important;
+  border-radius: 10px !important;
+  box-shadow: 3px 3px 0px 0px #000000 !important;
+  transition: transform 0.1s ease-out, box-shadow 0.1s ease-out, border-color 0.1s ease-out !important;
+}
+
+.brutal-btn-secondary:hover,
+.liquid-btn-secondary:hover {
+  border-color: #ffffff !important;
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 5px 5px 0px 0px #000000 !important;
+}
+
+.brutal-btn-secondary:active,
+.liquid-btn-secondary:active {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 0px 0px 0px 0px transparent !important;
+}
+
+.brutal-btn-danger,
+.liquid-btn-danger {
+  background-color: #e11d48 !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  border: 2px solid #fda4af !important;
+  border-radius: 10px !important;
+  box-shadow: 3px 3px 0px 0px #000000 !important;
+  transition: transform 0.1s ease-out, box-shadow 0.1s ease-out !important;
+}
+
+.brutal-btn-danger:hover,
+.liquid-btn-danger:hover {
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 5px 5px 0px 0px #000000 !important;
+}
+
+.brutal-btn-danger:active,
+.liquid-btn-danger:active {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 0px 0px 0px 0px transparent !important;
+}
+
+/* Brutalist Inputs */
+.brutal-input {
+  background-color: #0b0d10 !important;
+  border: 2px solid #27272a !important;
+  border-radius: 8px !important;
+  box-shadow: 2px 2px 0px 0px #000000 !important;
+  color: #ffffff !important;
+  transition: border-color 0.12s ease-out, box-shadow 0.12s ease-out !important;
+}
+
+.brutal-input:focus {
+  border-color: var(--theme-color) !important;
+  box-shadow: 3px 3px 0px 0px var(--theme-color) !important;
+  outline: none !important;
+}
+
+/* Brutalist Stamp Badges */
+.brutal-stamp {
+  font-family: var(--font-mono);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1.5px solid currentColor;
+  box-shadow: 2px 2px 0px 0px rgba(0, 0, 0, 0.8);
+}
+
+/* Minimalist technical grid background */
+.brutalist-grid-bg {
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.brutalist-dot-bg {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
+}
+
+/* Text glow / theme tokens */
+.text-theme {
+  color: var(--theme-color) !important;
+}
+
+.text-theme-light {
+  color: var(--theme-light) !important;
+}
+
+.border-theme {
+  border-color: var(--theme-color) !important;
+}
+
+.border-theme-light {
+  border-color: var(--theme-light) !important;
+}
+
+/* Animations */
 @keyframes ticker {
   0% {
     transform: translateX(0);
@@ -99,385 +289,17 @@ body {
   animation-play-state: paused;
 }
 
-.animate-cinematic-in {
-  animation: cinematicIn 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.animate-cinematic-out {
-  animation: cinematicOut 0.6s cubic-bezier(0.7, 0, 0.84, 0) forwards;
-}
-
-/* ── Liquid Glass UI / Glassmorphism UI / Glossy 3D Glass UI Design System ── */
-
-/* Liquid Specular Reflection & Refraction Panels */
-.liquid-glass {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.09) 0%,
-    rgba(255, 255, 255, 0.02) 40%,
-    rgba(0, 0, 0, 0.6) 100%
-  );
-  backdrop-filter: blur(28px) saturate(190%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
-  border-top: 1px solid rgba(255, 255, 255, 0.25);
-  border-left: 1px solid rgba(255, 255, 255, 0.15);
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
-  box-shadow: 
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.6),
-    0 24px 60px -15px rgba(0, 0, 0, 0.9),
-    0 0 35px -5px var(--theme-glow);
-}
-
-.liquid-glass-card {
-  position: relative;
-  background: linear-gradient(
-    145deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.02) 40%,
-    rgba(10, 10, 10, 0.75) 100%
-  );
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-top: 1px solid rgba(255, 255, 255, 0.22);
-  border-left: 1px solid rgba(255, 255, 255, 0.12);
-  border-right: 1px solid rgba(255, 255, 255, 0.04);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
-  box-shadow: 
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4),
-    0 16px 40px -10px rgba(0, 0, 0, 0.85);
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.liquid-glass-card:hover {
-  transform: translateY(-3px) scale(1.01);
-  border-top: 1px solid rgba(255, 255, 255, 0.45);
-  border-left: 1px solid var(--theme-border);
-  box-shadow: 
-    inset 0 1px 2px 0 rgba(255, 255, 255, 0.5),
-    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.5),
-    0 24px 50px -10px rgba(0, 0, 0, 0.95),
-    0 0 30px -5px var(--theme-glow);
-}
-
-.liquid-pill {
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.14) 0%,
-    rgba(255, 255, 255, 0.03) 50%,
-    rgba(0, 0, 0, 0.45) 100%
-  );
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border-top: 1px solid rgba(255, 255, 255, 0.3);
-  border-left: 1px solid rgba(255, 255, 255, 0.15);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.45);
-  box-shadow: 
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4),
-    0 8px 20px -6px rgba(0, 0, 0, 0.6);
-}
-
-.liquid-pill-active {
-  background: linear-gradient(
-    180deg,
-    var(--theme-glow) 0%,
-    var(--theme-subtle) 50%,
-    rgba(0, 0, 0, 0.5) 100%
-  ) !important;
-  color: var(--theme-light) !important;
-  backdrop-filter: blur(20px);
-  border-top: 1px solid var(--theme-light) !important;
-  border-left: 1px solid var(--theme-color) !important;
-  border-right: 1px solid var(--theme-border) !important;
-  border-bottom: 1px solid var(--theme-dark) !important;
-  box-shadow: 
-    inset 0 1px 2px 0 rgba(255, 255, 255, 0.6),
-    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.3),
-    0 10px 25px -5px var(--theme-glow),
-    0 0 20px var(--theme-glow) !important;
-}
-
-/* 3D Glossy Liquid Button */
-.liquid-btn-primary {
-  background: linear-gradient(
-    180deg,
-    var(--theme-light) 0%,
-    var(--theme-color) 35%,
-    var(--theme-dark) 85%,
-    rgba(0, 0, 0, 0.5) 100%
-  ) !important;
-  border-top: 1px solid rgba(255, 255, 255, 0.7) !important;
-  border-left: 1px solid rgba(255, 255, 255, 0.35) !important;
-  border-right: 1px solid var(--theme-border) !important;
-  border-bottom: 1px solid var(--theme-dark) !important;
-  box-shadow: 
-    inset 0 1px 2px 0 rgba(255, 255, 255, 0.75),
-    inset 0 -2px 3px 0 rgba(0, 0, 0, 0.35),
-    0 12px 28px -6px var(--theme-glow),
-    0 0 20px var(--theme-glow) !important;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.liquid-btn-primary:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 
-    inset 0 1px 3px 0 rgba(255, 255, 255, 0.9),
-    inset 0 -2px 4px 0 rgba(0, 0, 0, 0.4),
-    0 16px 36px -6px var(--theme-glow),
-    0 0 30px var(--theme-glow) !important;
-}
-
-.liquid-btn-primary:active {
-  transform: translateY(1px) scale(0.98);
-  box-shadow: 
-    inset 0 2px 4px 0 rgba(0, 0, 0, 0.4),
-    0 6px 16px -4px var(--theme-glow) !important;
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   WHITE THEME EXCLUSIVE BUTTON:
-   High-Contrast Luxury Obsidian Black Text & Icons on Pure Glowing White Liquid Glass
-   ───────────────────────────────────────────────────────────────────────────── */
-[data-theme="white"] .liquid-btn-primary {
-  background: linear-gradient(
-    180deg,
-    #ffffff 0%,
-    #f4f4f5 45%,
-    #e4e4e7 85%,
-    #d4d4d8 100%
-  ) !important;
-  color: #000000 !important;
-  font-weight: 800 !important;
-  text-shadow: none !important;
-  border-top: 1px solid #ffffff !important;
-  border-left: 1px solid #ffffff !important;
-  border-right: 1px solid rgba(0, 0, 0, 0.15) !important;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.3) !important;
-  box-shadow: 
-    inset 0 1px 2px 0 #ffffff,
-    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.12),
-    0 10px 25px -4px rgba(255, 255, 255, 0.5),
-    0 0 20px rgba(255, 255, 255, 0.3) !important;
-}
-
-[data-theme="white"] .liquid-btn-primary,
-[data-theme="white"] .liquid-btn-primary *,
-[data-theme="white"] .liquid-btn-primary span,
-[data-theme="white"] .liquid-btn-primary p,
-[data-theme="white"] .liquid-btn-primary strong {
-  color: #000000 !important;
-}
-
-[data-theme="white"] .liquid-btn-primary svg {
-  color: #000000 !important;
-  fill: currentColor !important;
-}
-
-[data-theme="white"] .liquid-btn-primary:hover {
-  background: linear-gradient(
-    180deg,
-    #ffffff 0%,
-    #ffffff 50%,
-    #f4f4f5 100%
-  ) !important;
-  color: #000000 !important;
-  box-shadow: 
-    inset 0 1px 3px 0 #ffffff,
-    0 14px 32px -4px rgba(255, 255, 255, 0.7),
-    0 0 30px rgba(255, 255, 255, 0.4) !important;
-}
-
-[data-theme="white"] .liquid-btn-primary:active {
-  background: #e4e4e7 !important;
-  color: #000000 !important;
-}
-
-/* 3D Glossy Secondary Glass Button */
-.liquid-btn-secondary {
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.12) 0%,
-    rgba(255, 255, 255, 0.03) 45%,
-    rgba(0, 0, 0, 0.45) 100%
-  );
-  backdrop-filter: blur(20px) saturate(180%);
-  border-top: 1px solid rgba(255, 255, 255, 0.35);
-  border-left: 1px solid rgba(255, 255, 255, 0.18);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
-  box-shadow: 
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.4),
-    0 10px 24px -6px rgba(0, 0, 0, 0.6);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.liquid-btn-secondary:hover {
-  transform: translateY(-2px) scale(1.02);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.18) 0%,
-    rgba(255, 255, 255, 0.06) 45%,
-    rgba(0, 0, 0, 0.45) 100%
-  );
-  border-top: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow: 
-    inset 0 1px 2px 0 rgba(255, 255, 255, 0.55),
-    0 14px 30px -6px rgba(0, 0, 0, 0.8),
-    0 0 25px -5px rgba(16, 185, 129, 0.25);
-}
-
-.liquid-btn-secondary:active {
-  transform: translateY(1px) scale(0.98);
-}
-
-/* 3D Glossy Danger Glass Button */
-.liquid-btn-danger {
-  background: linear-gradient(
-    180deg,
-    rgba(244, 63, 94, 0.45) 0%,
-    rgba(225, 29, 72, 0.3) 50%,
-    rgba(159, 18, 57, 0.4) 100%
-  );
-  backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(253, 164, 175, 0.6);
-  border-left: 1px solid rgba(244, 63, 94, 0.4);
-  border-bottom: 1px solid rgba(136, 19, 55, 0.8);
-  box-shadow: 
-    inset 0 1px 2px 0 rgba(255, 255, 255, 0.5),
-    0 10px 24px -5px rgba(225, 29, 72, 0.4);
-}
-
-/* Ambient Fluid Glow Mesh Spheres */
-.liquid-mesh-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(90px);
-  pointer-events: none;
-  opacity: 0.35;
-  mix-blend-mode: screen;
-  animation: floatOrb 18s ease-in-out infinite alternate;
-}
-
-@keyframes floatOrb {
-  0% {
-    transform: translate(0px, 0px) scale(1);
-  }
-  50% {
-    transform: translate(40px, -30px) scale(1.15);
-  }
-  100% {
-    transform: translate(-30px, 40px) scale(0.95);
-  }
-}
-
-/* Glass panel / card backwards compatibility */
-.glass-panel {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(16, 185, 129, 0.03) 25%,
-    rgba(6, 15, 11, 0.7) 100%
-  );
-  backdrop-filter: blur(28px) saturate(190%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-  border-left: 1px solid rgba(255, 255, 255, 0.12);
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
-  box-shadow: 
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.5),
-    0 24px 60px -15px rgba(0, 0, 0, 0.8),
-    0 0 35px -5px rgba(16, 185, 129, 0.1);
-}
-
-.glass-card {
-  background: linear-gradient(
-    145deg,
-    rgba(255, 255, 255, 0.07) 0%,
-    rgba(255, 255, 255, 0.02) 40%,
-    rgba(6, 15, 11, 0.65) 100%
-  );
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-top: 1px solid rgba(255, 255, 255, 0.18);
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
-  border-right: 1px solid rgba(255, 255, 255, 0.04);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.45);
-  box-shadow: 
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.25),
-    0 16px 40px -10px rgba(0, 0, 0, 0.7);
-}
-
-.glow-emerald,
-.glow-theme {
-  box-shadow: 
-    0 0 30px -4px var(--theme-glow),
-    0 0 60px -10px var(--theme-glow) !important;
-}
-
-.glow-emerald-sm,
-.glow-theme-sm {
-  box-shadow: 
-    0 0 20px -3px var(--theme-glow),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.3) !important;
-}
-
-.text-glow-emerald,
-.text-glow-theme {
-  color: var(--theme-light) !important;
-  text-shadow: 0 0 25px var(--theme-glow), 0 0 50px var(--theme-glow) !important;
-}
-
-.text-theme {
-  color: var(--theme-color) !important;
-}
-
-.text-theme-light {
-  color: var(--theme-light) !important;
-}
-
-.border-theme {
-  border-color: var(--theme-border) !important;
-}
-
-.border-theme-light {
-  border-color: var(--theme-light) !important;
-}
-
-.border-subtle {
-  border-color: rgba(255, 255, 255, 0.12);
-}
-
-.border-subtle-emerald,
-.border-subtle-theme {
-  border-color: var(--theme-border) !important;
-}
-
-/* Live Ticker Pop-In Entrance Animation */
-@keyframes tickerPillIn {
-  0% {
+@keyframes fadeIn {
+  from {
     opacity: 0;
-    transform: translateX(-40px) scale(0.82);
-    filter: brightness(1.7) drop-shadow(0 0 14px var(--theme-glow));
+    transform: translateY(4px);
   }
-  65% {
+  to {
     opacity: 1;
-    transform: translateX(3px) scale(1.04);
-    filter: brightness(1.2) drop-shadow(0 0 8px var(--theme-glow));
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-    filter: brightness(1) drop-shadow(0 0 0 transparent);
+    transform: translateY(0);
   }
 }
 
-.animate-ticker-in {
-  animation: tickerPillIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+.animate-fadeIn {
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

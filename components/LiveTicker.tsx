@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { PonsV2TokenInfo } from '@/lib/pons-v2'
 import { useTheme } from '@/context/ThemeContext'
@@ -19,13 +19,6 @@ export default function LiveTicker() {
   const [tokens, setTokens] = useState<TickerLaunchEvent[]>([])
 
   useEffect(() => {
-    // Clear any old ticker local storage cache from previous versions
-    try {
-      localStorage.removeItem('sparkle_live_ticker_events_v4')
-      localStorage.removeItem('sparkle_live_ticker_events_v3')
-      localStorage.removeItem('sparkle_live_ticker_events')
-    } catch { /* ignore */ }
-
     async function fetchLaunchedTokens() {
       try {
         const res = await fetch('/api/launchpad/tokens')
@@ -54,47 +47,44 @@ export default function LiveTicker() {
   if (tokens.length === 0) return null
 
   return (
-    <div className="w-full bg-[#030604]/85 backdrop-blur-xl border-b border-white/[0.08] overflow-hidden py-1.5 px-2.5 sm:px-6 select-none">
-      <div className="flex items-center justify-start gap-2 sm:gap-2.5 w-full overflow-x-auto no-scrollbar">
+    <div className="w-full bg-[#0d0f12] border-b-2 border-zinc-800 overflow-hidden py-1.5 px-3 sm:px-6 select-none font-mono">
+      <div className="flex items-center justify-start gap-2 w-full overflow-x-auto no-scrollbar">
+        <span className="text-[10px] font-black uppercase text-zinc-500 flex-shrink-0 flex items-center gap-1 mr-1">
+          <span className="w-1.5 h-1.5 rounded-none bg-[var(--theme-color)]" />
+          FEED //
+        </span>
+
         {tokens.map((tok) => {
           return (
             <Link
               key={tok.tokenAddress}
               href={`/token/${tok.tokenAddress}`}
-              style={{
-                borderColor: `${theme.primary}40`,
-                boxShadow: `0 2px 10px ${theme.glow}`,
-              }}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border bg-black/50 backdrop-blur-xl transition-all hover:scale-105 hover:brightness-110 flex-shrink-0 cursor-pointer shadow-lg select-none group"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#14181d] border border-zinc-700 hover:border-white shadow-[2px_2px_0px_0px_#000000] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all flex-shrink-0 cursor-pointer text-xs"
             >
-              {/* Token Image with safe fallback */}
-              <div className="w-5 h-5 rounded-full bg-black border border-white/20 overflow-hidden relative flex-shrink-0 flex items-center justify-center shadow-inner">
+              <div className="w-4 h-4 rounded-none bg-black border border-zinc-700 overflow-hidden relative flex-shrink-0 flex items-center justify-center">
                 <TokenImage
                   src={tok.logo}
                   alt={tok.symbol}
-                  size={20}
-                  sparkleSize={14}
+                  size={16}
+                  sparkleSize={10}
                   className="w-full h-full object-cover"
                 />
               </div>
 
-              <div className="flex items-baseline gap-1.5 text-[11px] font-mono leading-none">
-                <span className="font-extrabold text-white truncate max-w-[80px] drop-shadow-sm group-hover:text-theme-light transition-colors">
-                  {tok.symbol}
-                </span>
-                <span className="text-[10px] text-zinc-400 truncate max-w-[65px]">
-                  {tok.creator ? `${tok.creator.slice(0, 4)}...${tok.creator.slice(-2)}` : '0x00...00'}
-                </span>
-                <span
-                  style={{
-                    color: theme.color,
-                    textShadow: `0 0 8px ${theme.glow}`,
-                  }}
-                  className="text-[10px] font-black tracking-tight"
-                >
-                  Launched
-                </span>
-              </div>
+              <span className="font-black text-white truncate max-w-[80px]">
+                ${tok.symbol}
+              </span>
+
+              <span className="text-[10px] text-zinc-400 truncate max-w-[65px]">
+                {tok.creator ? `${tok.creator.slice(0, 4)}...${tok.creator.slice(-2)}` : '0x00'}
+              </span>
+
+              <span
+                style={{ backgroundColor: theme.color }}
+                className="text-[9px] font-black text-black px-1.5 py-0.2 rounded-none uppercase"
+              >
+                LIVE
+              </span>
             </Link>
           )
         })}
