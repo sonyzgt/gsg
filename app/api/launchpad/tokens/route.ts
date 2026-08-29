@@ -85,15 +85,14 @@ async function refreshTokensInBackground() {
       if (found) tokenInfos.push(found)
     }
 
-    if (tokenInfos.length > 0) {
-      if (g.__tokensCache) {
-        g.__tokensCache.data = tokenInfos
-        g.__tokensCache.lastFetch = Date.now()
-      }
-      try {
-        await writeFile(CACHE_FILE, JSON.stringify(tokenInfos, null, 2))
-      } catch { /* ignore */ }
+    // Always update in-memory and disk cache (even when array is empty after deletion)
+    if (g.__tokensCache) {
+      g.__tokensCache.data = tokenInfos
+      g.__tokensCache.lastFetch = Date.now()
     }
+    try {
+      await writeFile(CACHE_FILE, JSON.stringify(tokenInfos, null, 2))
+    } catch { /* ignore */ }
   } catch (err) {
     console.error('Background refresh error:', err)
   } finally {
