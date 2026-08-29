@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Button from '@/components/ui/Button'
 import toast from 'react-hot-toast'
 import { createPublicClient, http, erc20Abi, formatEther, encodeFunctionData, getAddress } from 'viem'
-import { useSendTransaction, useExportWallet } from '@privy-io/react-auth'
+import { useSendTransaction, useExportWallet, usePrivy, useWallets } from '@privy-io/react-auth'
 import { useTheme } from '@/context/ThemeContext'
 import SparkleIcon from '@/components/ui/SparkleIcon'
 
@@ -34,7 +34,10 @@ export default function WalletCard({ onSend, onReceive, onSwap, onClaimRoyalties
   const { theme } = useTheme()
   const { sendTransaction } = useSendTransaction()
   const { exportWallet } = useExportWallet()
+  const { logout } = usePrivy()
+  const { wallets } = useWallets()
   const [copying, setCopying] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
 
   const [wethBalanceRaw, setWethBalanceRaw] = useState<bigint>(0n)
   const [wethBalanceFormatted, setWethBalanceFormatted] = useState<string>('0')
@@ -223,6 +226,29 @@ export default function WalletCard({ onSend, onReceive, onSwap, onClaimRoyalties
                 title="Export Private Key"
               >
                 EXPORT
+              </button>
+              <button
+                onClick={async () => {
+                  setDisconnecting(true)
+                  try {
+                    if (Array.isArray(wallets) && wallets.length > 0) {
+                      await Promise.allSettled(
+                        wallets.map((w) => (typeof w.disconnect === 'function' ? w.disconnect() : Promise.resolve()))
+                      )
+                    }
+                    await logout()
+                    toast.success('Wallet disconnected')
+                  } catch (e) {
+                    console.warn(e)
+                  } finally {
+                    setDisconnecting(false)
+                  }
+                }}
+                disabled={disconnecting}
+                className="py-1.5 px-2 rounded bg-rose-950/40 border-2 border-rose-800 hover:border-white text-rose-300 hover:text-white transition-all flex items-center justify-center gap-1.5 text-[10px] font-black shadow-[2px_2px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none cursor-pointer uppercase"
+                title="Disconnect Wallet"
+              >
+                {disconnecting ? 'DISCONNECTING...' : 'DISCONNECT'}
               </button>
             </div>
           </div>

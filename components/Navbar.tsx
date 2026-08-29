@@ -1,6 +1,6 @@
 'use client'
 
-import { usePrivy, useLoginWithOAuth } from '@privy-io/react-auth'
+import { usePrivy, useLoginWithOAuth, useWallets } from '@privy-io/react-auth'
 import { useWallet } from '@/hooks/useWallet'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -11,7 +11,7 @@ import { useTheme } from '@/context/ThemeContext'
 import SparkleIcon from '@/components/ui/SparkleIcon'
 
 interface NavbarProps {
-  onLogout: () => void
+  onLogout?: () => void
   loggingOut?: boolean
 }
 
@@ -20,13 +20,37 @@ export default function Navbar({
   loggingOut = false,
 }: NavbarProps) {
   const pathname = usePathname()
-  const { user, authenticated, connectWallet, login } = usePrivy()
+  const { user, authenticated, connectWallet, login, logout } = usePrivy()
+  const { wallets } = useWallets()
   const { address } = useWallet()
   const [loggingIn, setLoggingIn] = useState(false)
+  const [isDisconnecting, setIsDisconnecting] = useState(false)
   const [loginMenuOpen, setLoginMenuOpen] = useState(false)
   const { theme, setThemeId, themes } = useTheme()
   const [themeMenuOpen, setThemeMenuOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+
+  const handleDisconnect = async () => {
+    setIsDisconnecting(true)
+    try {
+      if (Array.isArray(wallets) && wallets.length > 0) {
+        await Promise.allSettled(
+          wallets.map((w) => (typeof w.disconnect === 'function' ? w.disconnect() : Promise.resolve()))
+        )
+      }
+      if (typeof logout === 'function') {
+        await logout()
+      }
+      if (typeof onLogout === 'function') {
+        await onLogout()
+      }
+    } catch (err) {
+      console.warn('Disconnect error:', err)
+    } finally {
+      setIsDisconnecting(false)
+      setDropdownOpen(false)
+    }
+  }
 
   const { initOAuth } = useLoginWithOAuth({
     onComplete: () => {
@@ -311,15 +335,12 @@ export default function Navbar({
 
                     <button
                       type="button"
-                      onClick={() => {
-                        setDropdownOpen(false)
-                        onLogout()
-                      }}
-                      disabled={loggingOut}
+                      onClick={handleDisconnect}
+                      disabled={loggingOut || isDisconnecting}
                       className="flex items-center gap-2.5 px-2.5 py-2 rounded text-xs font-bold text-rose-400 hover:text-white hover:bg-rose-600 transition-all w-full text-left cursor-pointer"
                     >
                       <span>[✕]</span>
-                      <span>DISCONNECT</span>
+                      <span>{isDisconnecting || loggingOut ? 'DISCONNECTING...' : 'DISCONNECT'}</span>
                     </button>
                   </div>
                 </>
