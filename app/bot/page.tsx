@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button'
 import Spinner from '@/components/ui/Spinner'
 import { toast } from 'react-hot-toast'
 import { useAccount } from 'wagmi'
+import { usePrivy } from '@privy-io/react-auth'
 import Link from 'next/link'
 
 interface BotUserData {
@@ -14,6 +15,7 @@ interface BotUserData {
   twitterHandle: string
   name: string
   profileImage?: string
+  privyWalletAddress?: string
   walletAddress: string
   createdAt: number
   totalLaunches: number
@@ -28,6 +30,7 @@ interface SimResult {
 
 export default function TwitterBotPage() {
   const { address } = useAccount()
+  const { user: privyUser, authenticated, login } = usePrivy()
   const [handleInput, setHandleInput] = useState('')
   const [user, setUser] = useState<BotUserData | null>(null)
   const [balanceEth, setBalanceEth] = useState('0.0')
@@ -44,6 +47,12 @@ export default function TwitterBotPage() {
   const [withdrawAddress, setWithdrawAddress] = useState('')
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawing, setWithdrawing] = useState(false)
+
+  // Auto-fill Privy Address
+  const activePrivyWallet = address || privyUser?.wallet?.address || ''
+  const privyTwitterHandle = privyUser?.linkedAccounts?.find(
+    (a) => a.type === 'twitter_oauth'
+  ) as { username?: string } | undefined
 
   const fetchBalance = useCallback(async (walletAddr: string) => {
     setRefreshingBal(true)
@@ -78,36 +87,44 @@ export default function TwitterBotPage() {
     }
   }, [fetchBalance])
 
-  // Load saved handle from local storage
+  // Load saved handle or Privy twitter on mount
   useEffect(() => {
-    const saved = localStorage.getItem('__ponscore_tw_handle')
-    if (saved) {
-      setHandleInput(saved)
-      fetchUser(saved)
+    if (privyTwitterHandle?.username && !handleInput) {
+      setHandleInput(privyTwitterHandle.username)
+      fetchUser(privyTwitterHandle.username)
+    } else {
+      const saved = localStorage.getItem('__ponscore_tw_handle')
+      if (saved) {
+        setHandleInput(saved)
+        fetchUser(saved)
+      }
     }
-  }, [fetchUser])
+  }, [privyTwitterHandle, fetchUser])
 
-  async function handleConnectTwitter() {
-    if (!handleInput.trim()) {
+  async function handleConnectTwitter(customHandle?: string) {
+    const handleToUse = (customHandle || handleInput || privyTwitterHandle?.username || '').replace('@', '').trim()
+    if (!handleToUse) {
       toast.error('Masukkan username Twitter / X Anda!')
       return
     }
-    const clean = handleInput.replace('@', '').trim()
+
     setLoading(true)
     try {
       const res = await fetch('/api/bot/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          twitterHandle: clean,
-          name: clean,
+          twitterHandle: handleToUse,
+          name: handleToUse,
+          privyUserId: privyUser?.id,
+          privyWalletAddress: activePrivyWallet || undefined,
         }),
       })
       const data = await res.json()
       if (data.success && data.user) {
         setUser(data.user)
-        localStorage.setItem('__ponscore_tw_handle', clean)
-        toast.success('Twitter @' + clean + ' berhasil terhubung!')
+        localStorage.setItem('__ponscore_tw_handle', handleToUse)
+        toast.success('Twitter @' + handleToUse + ' berhasil terhubung dengan Wallet Privy!')
         fetchBalance(data.user.walletAddress)
       } else {
         toast.error(data.error || 'Gagal menghubungkan Twitter')
@@ -202,14 +219,14 @@ export default function TwitterBotPage() {
                 // PONSCORE_X_BOT_PROTOCOL
               </span>
               <span className="px-1.5 py-0.2 bg-zinc-800 border border-zinc-700 text-[9px] font-bold text-zinc-300">
-                AUTONOMOUS DEPLOYER
+                PRIVY INTEGRATED
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black uppercase text-white tracking-tight">
               LAUNCH TOKENS DIRECTLY ON X (TWITTER)
             </h1>
             <p className="text-xs text-zinc-400 max-w-2xl mt-1 font-sans">
-              Deploy fair-launch bonding curve tokens on Robinhood Chain simply by tagging <strong className="text-white font-mono">@ponscorebot</strong> in a tweet with your token image and ticker.
+              Deploy fair-launch bonding curve tokens on Robinhood Chain simply by tagging <strong className="text-white font-mono">@ponscorebot</strong> in a tweet. All token creator rights & royalties link directly to your <strong className="text-white">Privy Wallet</strong>.
             </p>
           </div>
 
@@ -231,45 +248,69 @@ export default function TwitterBotPage() {
           {/* Left Column: Account & Wallet Setup (5 Cols) */}
           <div className="lg:col-span-5 flex flex-col gap-6">
             
-            {/* 1. Twitter Account Card */}
+            {/* 1. Twitter & Privy Account Card */}
             <div className="bg-[#0e1115] border-2 border-white rounded-xl p-4 sm:p-5 shadow-[4px_4px_0px_0px_#000000] flex flex-col gap-4">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
                 <h2 className="text-xs font-black uppercase text-white flex items-center gap-2">
                   <span>[01]</span>
-                  <span>LINK TWITTER (X) ACCOUNT</span>
+                  <span>LINK TWITTER & PRIVY WALLET</span>
                 </h2>
                 {user && (
                   <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded">
-                    CONNECTED
+                    LINKED
                   </span>
                 )}
               </div>
 
+              {authenticated && activePrivyWallet && (
+                <div className="p-3 bg-black/80 border border-zinc-800 rounded flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-zinc-400 font-bold">YOUR ACTIVE PRIVY WALLET:</span>
+                    <span className="text-[9px] text-emerald-400 bg-emerald-950 border border-emerald-800 px-1.5 py-0.2">LOGGED IN</span>
+                  </div>
+                  <div className="text-xs text-amber-300 font-mono break-all font-bold">
+                    {activePrivyWallet}
+                  </div>
+                </div>
+              )}
+
               {!user ? (
                 <div className="flex flex-col gap-3">
                   <p className="text-xs text-zinc-400 font-sans">
-                    Masukkan username Twitter/X Anda untuk mengaktifkan sub-wallet peluncuran otomatis:
+                    Masukkan username Twitter / X Anda untuk menghubungkan ke Wallet Privy:
                   </p>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">@</span>
-                      <input
-                        type="text"
-                        value={handleInput}
-                        onChange={(e) => setHandleInput(e.target.value)}
-                        placeholder="your_twitter_handle"
-                        className="w-full bg-black border-2 border-zinc-700 pl-8 pr-3 py-2 text-xs text-white placeholder-zinc-600 focus:border-white focus:outline-none"
-                      />
-                    </div>
+
+                  {privyTwitterHandle?.username ? (
                     <Button
-                      onClick={handleConnectTwitter}
+                      onClick={() => handleConnectTwitter(privyTwitterHandle.username)}
                       disabled={loading}
                       variant="primary"
-                      className="px-4 text-xs font-black"
+                      className="w-full py-2.5 text-xs font-black"
                     >
-                      {loading ? <Spinner size="sm" /> : 'CONNECT'}
+                      {loading ? <Spinner size="sm" /> : `CONNECT AS @${privyTwitterHandle.username}`}
                     </Button>
-                  </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">@</span>
+                        <input
+                          type="text"
+                          value={handleInput}
+                          onChange={(e) => setHandleInput(e.target.value)}
+                          placeholder="your_twitter_handle"
+                          className="w-full bg-black border-2 border-zinc-700 pl-8 pr-3 py-2 text-xs text-white placeholder-zinc-600 focus:border-white focus:outline-none"
+                        />
+                      </div>
+                      <Button
+                        onClick={() => handleConnectTwitter()}
+                        disabled={loading}
+                        variant="primary"
+                        className="px-4 text-xs font-black"
+                      >
+                        {loading ? <Spinner size="sm" /> : 'CONNECT'}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
@@ -294,17 +335,24 @@ export default function TwitterBotPage() {
                       Disconnect
                     </button>
                   </div>
+
+                  {user.privyWalletAddress && (
+                    <div className="p-2.5 bg-zinc-900/90 border border-zinc-700 rounded flex flex-col gap-0.5 text-[10px]">
+                      <span className="text-zinc-400 font-bold">OFFICIAL CREATOR WALLET:</span>
+                      <span className="text-emerald-300 font-mono break-all">{user.privyWalletAddress}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* 2. Deposit Wallet Card */}
+            {/* 2. Fuel Launch Wallet Card */}
             {user && (
               <div className="bg-[#0e1115] border-2 border-white rounded-xl p-4 sm:p-5 shadow-[4px_4px_0px_0px_#000000] flex flex-col gap-4">
                 <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
                   <h2 className="text-xs font-black uppercase text-white flex items-center gap-2">
                     <span>[02]</span>
-                    <span>DEDICATED LAUNCH WALLET</span>
+                    <span>BOT FUEL WALLET</span>
                   </h2>
                   <button
                     onClick={() => fetchBalance(user.walletAddress)}
@@ -319,7 +367,7 @@ export default function TwitterBotPage() {
                 {/* Balance Display */}
                 <div className="p-3 bg-black border-2 border-zinc-800 rounded flex items-center justify-between">
                   <div>
-                    <div className="text-[10px] text-zinc-400 font-bold">ROBINHOOD CHAIN BALANCE</div>
+                    <div className="text-[10px] text-zinc-400 font-bold">AVAILABLE FUEL BALANCE</div>
                     <div className="text-xl font-black text-white flex items-baseline gap-1 mt-0.5">
                       <span>{balanceEth}</span>
                       <span className="text-xs text-theme-light font-bold">ETH</span>
@@ -334,7 +382,7 @@ export default function TwitterBotPage() {
                 {/* Deposit Address Box */}
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[10px] text-zinc-400 font-bold uppercase">
-                    Your Deposit Address (Send ETH Here to Fuel Launches):
+                    Deposit Fuel Address (Kirim ETH ke sini untuk biaya deploy):
                   </span>
                   <div className="flex items-center gap-2 p-2.5 bg-black border border-zinc-700 rounded select-all text-xs font-mono break-all">
                     <span className="text-amber-300 font-bold flex-1">{user.walletAddress}</span>
@@ -346,14 +394,22 @@ export default function TwitterBotPage() {
                     </button>
                   </div>
                   <p className="text-[10px] text-zinc-500 font-sans">
-                    💡 Rekomendasi: Kirim minimal <strong>0.005 ETH</strong> untuk meng-cover biaya deploy token (0.0005 ETH) + gas fee on-chain.
+                    💡 Biaya deploy adalah 0.0005 ETH per token. Saldo ini hanya digunakan untuk membayar gas fee & launch fee saat Anda ngetweet.
                   </p>
                 </div>
 
                 {/* Withdraw Section */}
                 <div className="pt-3 border-t border-zinc-800/80 flex flex-col gap-2">
                   <div className="flex items-center justify-between text-xs font-bold text-zinc-300">
-                    <span>Tarik Sisa Saldo (Withdraw)</span>
+                    <span>Tarik Saldo Fuel (Withdraw)</span>
+                    {activePrivyWallet && (
+                      <button
+                        onClick={() => setWithdrawAddress(activePrivyWallet)}
+                        className="text-[10px] text-theme-light hover:underline cursor-pointer"
+                      >
+                        Pakai Alamat Privy Saya
+                      </button>
+                    )}
                   </div>
                   <div className="flex flex-col gap-2">
                     <input
@@ -434,8 +490,8 @@ export default function TwitterBotPage() {
                     <div className="text-[11px] text-zinc-400 mt-0.5">Bot mengeksekusi smart contract Pons v2 on-chain dalam 3-5 detik.</div>
                   </div>
                   <div className="p-2.5 bg-black/50 border border-zinc-800 rounded">
-                    <div className="text-[10px] text-theme-light font-bold">4. INSTANT REPLY</div>
-                    <div className="text-[11px] text-zinc-400 mt-0.5">Bot langsung membalas tweet dengan link trade & explorer.</div>
+                    <div className="text-[10px] text-theme-light font-bold">4. PRIVY CREATOR</div>
+                    <div className="text-[11px] text-zinc-400 mt-0.5">Semua 1% creator tax & token tercatat atas Wallet Privy Anda.</div>
                   </div>
                 </div>
               </div>
@@ -491,7 +547,7 @@ export default function TwitterBotPage() {
                 {simResult && (
                   <div className={'p-3.5 rounded border-2 text-xs font-mono ' + (simResult.success ? 'bg-emerald-950/40 border-emerald-600 text-emerald-200' : 'bg-rose-950/40 border-rose-600 text-rose-200')}>
                     <div className="font-bold uppercase text-[11px] mb-1">
-                      {simResult.success ? '✅ BOT RESPONSE (SUCCESS):' : '❌ BOT RESPONSE (ERROR):'}
+                      {simResult.success ? 'BOT RESPONSE (SUCCESS):' : 'BOT RESPONSE (ERROR):'}
                     </div>
                     <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed">
                       {simResult.message}

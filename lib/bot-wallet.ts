@@ -13,7 +13,9 @@ export interface BotUser {
   twitterHandle: string
   name: string
   profileImage?: string
-  walletAddress: `0x${string}`
+  privyUserId?: string
+  privyWalletAddress?: `0x${string}`
+  walletAddress: `0x${string}` // Dedicated execution sub-wallet
   encryptedPrivateKey: string
   iv: string
   tag: string
@@ -73,14 +75,37 @@ export async function saveBotUsers(users: BotUser[]): Promise<void> {
   }
 }
 
-export async function getOrCreateBotUser(twitterId: string, twitterHandle: string, name = '', profileImage = ''): Promise<BotUser> {
+export async function getOrCreateBotUser({
+  twitterId,
+  twitterHandle,
+  name = '',
+  profileImage = '',
+  privyUserId = '',
+  privyWalletAddress = '',
+}: {
+  twitterId: string
+  twitterHandle: string
+  name?: string
+  profileImage?: string
+  privyUserId?: string
+  privyWalletAddress?: string
+}): Promise<BotUser> {
   const cleanHandle = twitterHandle.replace('@', '').toLowerCase()
   const users = await getBotUsers()
   
-  const existing = users.find(u => u.twitterId === twitterId || u.twitterHandle.toLowerCase() === cleanHandle)
+  const existing = users.find(u => 
+    u.twitterId === twitterId || 
+    u.twitterHandle.toLowerCase() === cleanHandle ||
+    (privyUserId && u.privyUserId === privyUserId)
+  )
+
   if (existing) {
     if (name && existing.name !== name) existing.name = name
     if (profileImage && existing.profileImage !== profileImage) existing.profileImage = profileImage
+    if (privyUserId) existing.privyUserId = privyUserId
+    if (privyWalletAddress && isAddress(privyWalletAddress)) {
+      existing.privyWalletAddress = getAddress(privyWalletAddress) as `0x${string}`
+    }
     existing.twitterHandle = cleanHandle
     await saveBotUsers(users)
     return existing
@@ -95,6 +120,8 @@ export async function getOrCreateBotUser(twitterId: string, twitterHandle: strin
     twitterHandle: cleanHandle,
     name: name || cleanHandle,
     profileImage,
+    privyUserId,
+    privyWalletAddress: privyWalletAddress && isAddress(privyWalletAddress) ? (getAddress(privyWalletAddress) as `0x${string}`) : undefined,
     walletAddress: account.address,
     encryptedPrivateKey: encrypted,
     iv,

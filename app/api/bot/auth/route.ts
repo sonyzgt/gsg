@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { twitterHandle, name, profileImage, twitterId } = body
+    const { twitterHandle, name, profileImage, twitterId, privyUserId, privyWalletAddress } = body
 
     if (!twitterHandle) {
       return NextResponse.json({ error: 'Twitter handle required' }, { status: 400 })
@@ -15,7 +15,14 @@ export async function POST(req: NextRequest) {
     const cleanHandle = String(twitterHandle).replace('@', '').trim()
     const cleanId = twitterId || `tw_${cleanHandle.toLowerCase()}`
 
-    const botUser = await getOrCreateBotUser(cleanId, cleanHandle, name || cleanHandle, profileImage || '')
+    const botUser = await getOrCreateBotUser({
+      twitterId: cleanId,
+      twitterHandle: cleanHandle,
+      name: name || cleanHandle,
+      profileImage: profileImage || '',
+      privyUserId,
+      privyWalletAddress,
+    })
 
     return NextResponse.json({
       success: true,
@@ -24,6 +31,7 @@ export async function POST(req: NextRequest) {
         twitterHandle: botUser.twitterHandle,
         name: botUser.name,
         profileImage: botUser.profileImage,
+        privyWalletAddress: botUser.privyWalletAddress,
         walletAddress: botUser.walletAddress,
         createdAt: botUser.createdAt,
         totalLaunches: botUser.totalLaunches,
@@ -38,13 +46,17 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const handle = req.nextUrl.searchParams.get('handle')
-    if (!handle) {
-      return NextResponse.json({ error: 'Handle required' }, { status: 400 })
+    const privyId = req.nextUrl.searchParams.get('privyId')
+
+    if (!handle && !privyId) {
+      return NextResponse.json({ error: 'Handle or privyId required' }, { status: 400 })
     }
 
-    const cleanHandle = handle.replace('@', '').toLowerCase()
     const users = await getBotUsers()
-    const found = users.find(u => u.twitterHandle.toLowerCase() === cleanHandle)
+    const found = users.find(u => 
+      (handle && u.twitterHandle.toLowerCase() === handle.replace('@', '').toLowerCase()) ||
+      (privyId && u.privyUserId === privyId)
+    )
 
     if (!found) {
       return NextResponse.json({ success: false, error: 'User not registered' }, { status: 404 })
@@ -57,6 +69,7 @@ export async function GET(req: NextRequest) {
         twitterHandle: found.twitterHandle,
         name: found.name,
         profileImage: found.profileImage,
+        privyWalletAddress: found.privyWalletAddress,
         walletAddress: found.walletAddress,
         createdAt: found.createdAt,
         totalLaunches: found.totalLaunches,

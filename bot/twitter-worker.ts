@@ -8,6 +8,7 @@ import { readFile, writeFile } from 'fs/promises'
 const FACTORY_ADDRESS = '0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e' as `0x${string}`
 const LAUNCH_FEE = parseEther('0.0005')
 const REGISTRY_FILE = path.join(process.cwd(), 'data', 'launched_tokens.json')
+const CACHE_FILE = path.join(process.cwd(), 'data', 'tokens_cache.json')
 
 const FACTORY_ABI = parseAbi([
   'function launchToken(string name, string symbol, string uri, address pairToken, uint24 poolFee, int24 tickSpacing, uint16 creatorTaxBps) payable returns (address token, address curve)',
@@ -29,15 +30,12 @@ export interface ParsedLaunchCommand {
 }
 
 export function parseTweetLaunchCommand(text: string, defaultImageUrl = ''): ParsedLaunchCommand | null {
-  // Regex to detect: @ponscorebot launch $TICKER Name Description
-  // Or: launch $TICKER Name
-  const clean = text.replace(/@w+/g, '').trim()
+  const clean = text.replace(/@\w+/g, '').trim()
   const tickerMatch = clean.match(/\$([A-Za-z0-9_]{2,15})/i) || clean.match(/(?:launch|deploy)\s+([A-Za-z0-9_]{2,15})/i)
   
   if (!tickerMatch) return null
   const symbol = tickerMatch[1].toUpperCase()
 
-  // Extract name and description around the ticker
   const parts = clean.replace(/^(?:launch|deploy)\s+/i, '').replace(tickerMatch[0], '').trim().split(/\n|\.|-/)
   const name = parts[0]?.trim() || `${symbol} Coin`
   const description = parts.slice(1).join(' ').trim() || `Community memecoin $${symbol} launched via PONSCORE Twitter Bot on Robinhood Chain.`
@@ -101,10 +99,8 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
     transport: http('https://robinhood-rpc.publicnode.com'),
   })
 
-  // Prepare IPFS Metadata URI
   const metadataUri = parsed.imageUrl
-
-  console.log(`[Bot Worker] Launching $${parsed.symbol} for @${payload.authorHandle} on Robinhood Chain...`)
+  console.log(`[Bot Worker] Launching $${parsed.symbol} for @${payload.authorHandle} (Privy: ${user.privyWalletAddress || user.walletAddress}) on Robinhood Chain...`)
 
   // Call Pons v2 Factory launchToken
   const txHash = await walletClient.sendTransaction({
@@ -144,7 +140,7 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
     } catch { /* continue */ }
   }
 
-  // Save to launched tokens database
+  // Save to launched tokens registry
   if (deployedTokenCa) {
     try {
       const rawStored = await readFile(REGISTRY_FILE, 'utf-8').catch(() => '[]')
@@ -160,7 +156,8 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
   user.totalLaunches = (user.totalLaunches || 0) + 1
   await saveBotUsers(users)
 
-  const successMessage = `$${parsed.symbol} is live on Robinhood Chain.\n\nToken: ${deployedTokenCa || 'Success'}\nCreator: @${payload.authorHandle}\nTrade: https://ponscore.app/token/${deployedTokenCa}\nExplorer: https://robinhoodchain.blockscout.com/tx/${txHash}`
+  const creatorDisplay = user.privyWalletAddress ? `@${payload.authorHandle} (${user.privyWalletAddress})` : `@${payload.authorHandle}`
+  const successMessage = `$${parsed.symbol} is live on Robinhood Chain.\n\nToken: ${deployedTokenCa || 'Success'}\nCreator: ${creatorDisplay}\nTrade: https://ponscore.app/token/${deployedTokenCa}\nExplorer: https://robinhoodchain.blockscout.com/tx/${txHash}`
 
   return {
     success: true,
