@@ -379,6 +379,7 @@ export default function TokenDetailPage({ params }: PageProps) {
                 currentPriceUsd={token.priceUsd}
                 currentPriceNative={token.priceNative}
                 phase={token.phase}
+                tokenAddress={token.tokenAddress}
               />
 
               {/* Overview & Information Box */}

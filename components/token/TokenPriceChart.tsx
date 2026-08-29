@@ -9,6 +9,7 @@ interface TokenPriceChartProps {
   currentPriceNative: number
   ethPriceUsd?: number
   phase?: number
+  tokenAddress?: string
 }
 
 interface PricePoint {
@@ -26,8 +27,12 @@ export default function TokenPriceChart({
   currentPriceUsd,
   currentPriceNative,
   ethPriceUsd = 2500,
+  phase = 0,
+  tokenAddress,
 }: TokenPriceChartProps) {
   const { theme } = useTheme()
+  const isGraduated = phase === 2
+  const [viewMode, setViewMode] = useState<'chart' | 'dex'>(isGraduated ? 'dex' : 'chart')
   const [timeframe, setTimeframe] = useState<'1M' | '5M' | '15M' | '1H' | '1D'>('5M')
   const [chartType, setChartType] = useState<'area' | 'candle'>('area')
   const [hoveredPoint, setHoveredPoint] = useState<PricePoint | null>(null)
@@ -148,54 +153,94 @@ export default function TokenPriceChart({
 
         {/* Timeframe & Chart Style Controls */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center bg-black border-2 border-zinc-700 rounded-lg p-1 text-xs shadow-[2px_2px_0px_0px_#000000]">
-            {(['1M', '5M', '15M', '1H', '1D'] as const).map((tf) => (
+          {tokenAddress && (
+            <div className="flex items-center bg-black border-2 border-zinc-700 rounded-lg p-1 text-xs shadow-[2px_2px_0px_0px_#000000]">
               <button
-                key={tf}
-                onClick={() => setTimeframe(tf)}
-                className={`px-2.5 py-1 rounded transition-all cursor-pointer font-black ${
-                  timeframe === tf
+                onClick={() => setViewMode('chart')}
+                className={`px-2.5 py-1 rounded transition-all cursor-pointer font-black uppercase ${
+                  viewMode === 'chart'
                     ? 'bg-[var(--theme-color)] text-black border border-black shadow-[1px_1px_0px_0px_#000000]'
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                {tf}
+                CURVE
               </button>
-            ))}
-          </div>
+              <button
+                onClick={() => setViewMode('dex')}
+                className={`px-2.5 py-1 rounded transition-all cursor-pointer font-black uppercase ${
+                  viewMode === 'dex'
+                    ? 'bg-amber-400 text-black border border-black shadow-[1px_1px_0px_0px_#000000]'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                DEX LIVE
+              </button>
+            </div>
+          )}
 
-          <div className="flex items-center bg-black border-2 border-zinc-700 rounded-lg p-1 text-xs shadow-[2px_2px_0px_0px_#000000]">
-            <button
-              onClick={() => setChartType('area')}
-              className={`px-2.5 py-1 rounded transition-all cursor-pointer font-black uppercase ${
-                chartType === 'area'
-                  ? 'bg-[var(--theme-color)] text-black border border-black shadow-[1px_1px_0px_0px_#000000]'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              LINE
-            </button>
-            <button
-              onClick={() => setChartType('candle')}
-              className={`px-2.5 py-1 rounded transition-all cursor-pointer font-black uppercase ${
-                chartType === 'candle'
-                  ? 'bg-[var(--theme-color)] text-black border border-black shadow-[1px_1px_0px_0px_#000000]'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              CANDLES
-            </button>
-          </div>
+          {viewMode === 'chart' && (
+            <>
+              <div className="flex items-center bg-black border-2 border-zinc-700 rounded-lg p-1 text-xs shadow-[2px_2px_0px_0px_#000000]">
+                {(['1M', '5M', '15M', '1H', '1D'] as const).map((tf) => (
+                  <button
+                    key={tf}
+                    onClick={() => setTimeframe(tf)}
+                    className={`px-2.5 py-1 rounded transition-all cursor-pointer font-black ${
+                      timeframe === tf
+                        ? 'bg-[var(--theme-color)] text-black border border-black shadow-[1px_1px_0px_0px_#000000]'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    {tf}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center bg-black border-2 border-zinc-700 rounded-lg p-1 text-xs shadow-[2px_2px_0px_0px_#000000]">
+                <button
+                  onClick={() => setChartType('area')}
+                  className={`px-2.5 py-1 rounded transition-all cursor-pointer font-black uppercase ${
+                    chartType === 'area'
+                      ? 'bg-[var(--theme-color)] text-black border border-black shadow-[1px_1px_0px_0px_#000000]'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  LINE
+                </button>
+                <button
+                  onClick={() => setChartType('candle')}
+                  className={`px-2.5 py-1 rounded transition-all cursor-pointer font-black uppercase ${
+                    chartType === 'candle'
+                      ? 'bg-[var(--theme-color)] text-black border border-black shadow-[1px_1px_0px_0px_#000000]'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  CANDLES
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* SVG Canvas Container */}
-      <div className="relative w-full h-[280px] sm:h-[320px] pt-4 select-none">
-        <svg
-          viewBox={`0 0 ${width} ${height}`}
-          className="w-full h-full overflow-visible"
-          onMouseLeave={() => setHoveredPoint(null)}
-        >
+      {/* Main View: Live DEX Terminal vs Synthetic Curve Canvas */}
+      {viewMode === 'dex' && tokenAddress ? (
+        <div className="relative w-full h-[460px] sm:h-[500px] pt-4 select-none">
+          <iframe
+            src={`https://dexscreener.com/robinhood/${tokenAddress}?embed=1&theme=dark&trades=0&info=0`}
+            title={`DexScreener $${symbol}`}
+            className="w-full h-full rounded-lg border-2 border-zinc-800 bg-black"
+            loading="lazy"
+          />
+        </div>
+      ) : (
+        /* SVG Canvas Container */
+        <div className="relative w-full h-[280px] sm:h-[320px] pt-4 select-none">
+          <svg
+            viewBox={`0 0 ${width} ${height}`}
+            className="w-full h-full overflow-visible"
+            onMouseLeave={() => setHoveredPoint(null)}
+          >
           <defs>
             <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={theme.color} stopOpacity="0.35" />
@@ -347,13 +392,16 @@ export default function TokenPriceChart({
           )}
         </svg>
       </div>
+      )}
 
-      {/* Bottom Time Axis */}
-      <div className="flex justify-between items-center px-4 pt-2 border-t border-white/[0.04] text-[10px] font-mono text-zinc-500">
-        <span>{points[0]?.time}</span>
-        <span>{points[Math.floor(points.length / 2)]?.time}</span>
-        <span>{points[points.length - 1]?.time} (Now)</span>
-      </div>
+      {/* Bottom Time Axis (only for curve chart) */}
+      {viewMode === 'chart' && (
+        <div className="flex justify-between items-center px-4 pt-2 border-t border-white/[0.04] text-[10px] font-mono text-zinc-500">
+          <span>{points[0]?.time}</span>
+          <span>{points[Math.floor(points.length / 2)]?.time}</span>
+          <span>{points[points.length - 1]?.time} (Now)</span>
+        </div>
+      )}
     </div>
   )
 }
