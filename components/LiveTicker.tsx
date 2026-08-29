@@ -47,8 +47,8 @@ export default function LiveTicker() {
   if (tokens.length === 0) return null
 
   return (
-    <div className="w-full bg-[#0d0f12] border-b-2 border-zinc-800 overflow-hidden py-1.5 px-3 sm:px-6 select-none font-mono">
-      <div className="flex items-center justify-start gap-2 w-full overflow-x-auto no-scrollbar">
+    <div className="w-full bg-[#0d0f12] border-b-2 border-zinc-800 py-1.5 px-3 sm:px-6 select-none font-mono">
+      <div className="flex items-center justify-start gap-2 w-full overflow-x-auto no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         <span className="text-[10px] font-black uppercase text-zinc-500 flex-shrink-0 flex items-center gap-1 mr-1">
           <span className="w-1.5 h-1.5 rounded-none bg-[var(--theme-color)]" />
           FEED //
