@@ -34,7 +34,8 @@ interface SwapModalProps {
   initialCa?: string
 }
 
-const SWAP_ROUTER = '0x1e406484F1F204b23cE84B9901C0171a738fd406' as `0x${string}`
+const UNIVERSAL_ROUTER = '0x8876789976decbfcbbbe364623c63652db8c0904' as `0x${string}`
+const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3' as `0x${string}`
 const WETH        = '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73' as `0x${string}`
 
 const SWAP_ABI = [
@@ -256,13 +257,13 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
 
   // ── Helper: Determine Approval Spender ────────────────────────────────────────
   const getSpender = useCallback(() => {
-    if (!tokenInfo) return SWAP_ROUTER
+    if (!tokenInfo) return PERMIT2
     const isCurveActive = tokenInfo.dexType === 'pons-v2' && !tokenInfo.graduated && (tokenInfo.phase === 0 || tokenInfo.phase === undefined)
     if (isCurveActive) {
       const targetCurve = tokenInfo.curveAddress || tokenInfo.poolAddress
       if (targetCurve && isAddress(targetCurve)) return getAddress(targetCurve)
     }
-    return SWAP_ROUTER
+    return UNIVERSAL_ROUTER
   }, [tokenInfo])
 
   // â”€â”€ Check Allowance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -471,7 +472,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
 
           txHash = await client.sendTransaction({
             account,
-            to:    SWAP_ROUTER,
+            to:    UNIVERSAL_ROUTER,
             value: amountInWei,
             data:  calldata,
             gas:   400000n,
@@ -491,7 +492,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
             amountInUnits = exactBal
           }
 
-          // 1. Exact Input Single: Token -> WETH (recipient: SWAP_ROUTER)
+          // 1. Exact Input Single: Token -> WETH (recipient: UNIVERSAL_ROUTER)
           const swapCall = encodeFunctionData({
             abi: SWAP_ABI,
             functionName: 'exactInputSingle',
@@ -499,7 +500,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
               tokenIn:           tokenAddr,
               tokenOut:          WETH,
               fee,
-              recipient:         SWAP_ROUTER,
+              recipient:         UNIVERSAL_ROUTER,
               deadline,
               amountIn:          amountInUnits,
               amountOutMinimum:  minOut,
@@ -523,7 +524,7 @@ export default function SwapModal({ open, onClose, initialCa }: SwapModalProps) 
 
           txHash = await client.sendTransaction({
             account,
-            to:   SWAP_ROUTER,
+            to:   UNIVERSAL_ROUTER,
             data: calldata,
             gas:  450000n,
           })

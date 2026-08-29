@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import SparkleIcon from '@/components/ui/SparkleIcon'
 import TokenImage from '@/components/ui/TokenImage'
 import {
@@ -31,50 +31,24 @@ interface TokenSwapWidgetProps {
   onSwapSuccess?: () => void
 }
 
-const SWAP_ROUTER = '0x1e406484F1F204b23cE84B9901C0171a738fd406' as `0x${string}`
-const WETH = '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73' as `0x${string}`
+// Robinhood Chain 4663 Constants
+const ROBINHOOD_CHAIN_ID = 4663
+const NATIVE_ETH = '0x0000000000000000000000000000000000000000'
+const UNIVERSAL_ROUTER = '0x8876789976decbfcbbbe364623c63652db8c0904' as `0x${string}`
+const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3' as `0x${string}`
 
-const SWAP_ABI = [
-  {
-    name: 'exactInputSingle',
-    type: 'function',
-    stateMutability: 'payable',
-    inputs: [
-      {
-        name: 'params',
-        type: 'tuple',
-        components: [
-          { name: 'tokenIn', type: 'address' },
-          { name: 'tokenOut', type: 'address' },
-          { name: 'fee', type: 'uint24' },
-          { name: 'recipient', type: 'address' },
-          { name: 'deadline', type: 'uint256' },
-          { name: 'amountIn', type: 'uint256' },
-          { name: 'amountOutMinimum', type: 'uint256' },
-          { name: 'sqrtPriceLimitX96', type: 'uint160' },
-        ],
-      },
-    ],
-    outputs: [{ name: 'amountOut', type: 'uint256' }],
-  },
-  {
-    name: 'unwrapWETH9',
-    type: 'function',
-    stateMutability: 'payable',
-    inputs: [
-      { name: 'amountMinimum', type: 'uint256' },
-      { name: 'recipient', type: 'address' },
-    ],
-    outputs: [],
-  },
-  {
-    name: 'multicall',
-    type: 'function',
-    stateMutability: 'payable',
-    inputs: [{ name: 'data', type: 'bytes[]' }],
-    outputs: [{ name: 'results', type: 'bytes[]' }],
-  },
-] as const
+interface UniswapQuoteResponse {
+  success: boolean
+  source: string
+  routing?: string
+  route?: string
+  amountIn?: string
+  amountOut?: string
+  minAmountOut?: string
+  priceNative?: number
+  slippage?: number
+  raw?: Record<string, unknown>
+}
 
 export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidgetProps) {
   const { authenticated } = usePrivy()
@@ -93,18 +67,22 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
   const [showSettings, setShowSettings] = useState(false)
 
   const [tokenBalanceRaw, setTokenBalanceRaw] = useState<bigint>(0n)
-  const [, setTokenBalanceFormatted] = useState('0')
-  const [, setFetchingTokenBal] = useState(false)
+  const [fetchingTokenBal, setFetchingTokenBal] = useState(false)
 
   const [needsApproval, setNeedsApproval] = useState(false)
   const [approving, setApproving] = useState(false)
   const [swapping, setSwapping] = useState(false)
 
+  // Real-time Quote State
+  const [quoteData, setQuoteData] = useState<UniswapQuoteResponse | null>(null)
+  const [fetchingQuote, setFetchingQuote] = useState(false)
+  const quoteAbortController = useRef<AbortController | null>(null)
+
   const isBuy = mode === 'BUY'
   const isGraduated = token.graduated || token.phase === 2
   const isCurve = !isGraduated && (token.phase === 0 || token.phase === undefined)
   const curveAddress = token.curveAddress
-  const targetSpender = isCurve ? curveAddress : SWAP_ROUTER
+  const targetSpender = isCurve ? (curveAddress as `0x${string}`) : PERMIT2
 
   // Fetch token balance
   const fetchTokenBal = useCallback(async () => {
@@ -116,18 +94,12 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
         transport: http('https://robinhood-rpc.publicnode.com'),
       })
       const bal = await pubClient.readContract({
-        address: token.tokenAddress,
+        address: getAddress(token.tokenAddress),
         abi: erc20Abi,
         functionName: 'balanceOf',
         args: [getAddress(address)],
       })
       setTokenBalanceRaw(bal)
-      const formatted = formatUnits(bal, 18)
-      setTokenBalanceFormatted(
-        parseFloat(formatted) < 0.01 && bal > 0n
-          ? formatted.slice(0, 8)
-          : parseFloat(formatted).toLocaleString('en-US', { maximumFractionDigits: 2 })
-      )
     } catch {
       // ignore
     } finally {
@@ -137,7 +109,7 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
 
   // Check allowance on sell
   const checkAllowance = useCallback(async () => {
-    if (isBuy || !address || !token.tokenAddress) {
+    if (isBuy || !address || !token.tokenAddress || !isAddress(token.tokenAddress)) {
       setNeedsApproval(false)
       return
     }
@@ -148,7 +120,7 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
       })
       const spender = targetSpender
       const allowance = await pubClient.readContract({
-        address: token.tokenAddress,
+        address: getAddress(token.tokenAddress),
         abi: erc20Abi,
         functionName: 'allowance',
         args: [getAddress(address), spender],
@@ -173,6 +145,58 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
     checkAllowance()
   }, [checkAllowance])
 
+  // Fetch Uniswap / DEX Quote when amount or token changes
+  useEffect(() => {
+    if (!isGraduated || !amount || parseFloat(amount) <= 0 || !token.tokenAddress) {
+      setQuoteData(null)
+      return
+    }
+
+    if (quoteAbortController.current) {
+      quoteAbortController.current.abort()
+    }
+    const controller = new AbortController()
+    quoteAbortController.current = controller
+
+    const timer = setTimeout(async () => {
+      setFetchingQuote(true)
+      try {
+        const tokenIn = isBuy ? NATIVE_ETH : token.tokenAddress
+        const tokenOut = isBuy ? token.tokenAddress : NATIVE_ETH
+        const amountWei = isBuy ? parseEther(amount).toString() : parseUnits(amount, 18).toString()
+
+        const res = await fetch('/api/uniswap/quote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tokenIn,
+            tokenOut,
+            amount: amountWei,
+            walletAddress: address || '0x0000000000000000000000000000000000000000',
+            slippage,
+          }),
+          signal: controller.signal,
+        })
+
+        if (res.ok) {
+          const data: UniswapQuoteResponse = await res.json()
+          setQuoteData(data)
+        }
+      } catch (err: unknown) {
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Quote fetch error:', err)
+        }
+      } finally {
+        setFetchingQuote(false)
+      }
+    }, 300)
+
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }, [isGraduated, isBuy, amount, token.tokenAddress, slippage, address])
+
   // Derived calculations
   const ethBalanceNum = balance ? parseFloat(balance.formatted) : 0
   const tokenBalanceNum = parseFloat(formatUnits(tokenBalanceRaw, 18))
@@ -181,8 +205,15 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
   // Output estimation
   const estimatedOutput = useMemo(() => {
     if (amountNum <= 0) return 0
+
+    if (isGraduated && quoteData && quoteData.amountOut) {
+      const outNum = parseFloat(formatUnits(BigInt(quoteData.amountOut), 18))
+      if (outNum > 0) return outNum
+    }
+
+    // Default price fallback
     const priceNative =
-      token.priceNative > 0 ? token.priceNative : isGraduated ? 0.000000007 : 0.0000000025
+      token.priceNative > 0 ? token.priceNative : isGraduated ? 0.00000003425 : 0.0000000025
     if (isBuy) {
       const feeDeduction = amountNum * 0.985
       return feeDeduction / priceNative
@@ -190,20 +221,53 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
       const grossEth = amountNum * priceNative
       return grossEth * 0.985
     }
-  }, [amountNum, isBuy, token.priceNative, isGraduated])
+  }, [amountNum, isBuy, token.priceNative, isGraduated, quoteData])
 
   const minReceived = useMemo(() => {
+    if (isGraduated && quoteData && quoteData.minAmountOut) {
+      const minNum = parseFloat(formatUnits(BigInt(quoteData.minAmountOut), 18))
+      if (minNum > 0) return minNum
+    }
     return estimatedOutput * (1 - slippage / 100)
-  }, [estimatedOutput, slippage])
+  }, [estimatedOutput, slippage, isGraduated, quoteData])
 
   const hasSufficientBalance = isBuy
     ? amountNum > 0 && amountNum <= Math.max(0, ethBalanceNum - 0.0001)
     : amountNum > 0 && amountNum <= tokenBalanceNum
 
+  // Dynamic Execution Route
+  const executionRouteDisplay = useMemo(() => {
+    if (isCurve) return 'PONS V2 BONDING CURVE'
+    if (quoteData?.route) return quoteData.route.toUpperCase()
+    return 'UNISWAP V4'
+  }, [isCurve, quoteData])
+
+  // Human-readable Error Mapping
+  function mapErrorMessage(err: unknown): string {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (msg.includes('cancel') || msg.includes('reject') || msg.includes('denied') || msg.includes('User rejected')) {
+      return 'Transaction cancelled by user.'
+    }
+    if (msg.includes('insufficient funds') || msg.includes('exceeds balance')) {
+      return 'Insufficient ETH balance for amount + gas fee.'
+    }
+    if (msg.includes('allowance') || msg.includes('INSUFFICIENT_ALLOWANCE')) {
+      return 'Token approval is required before swapping.'
+    }
+    if (msg.includes('revert') || msg.includes('execution reverted')) {
+      return 'Swap simulation failed. Please refresh quote or adjust slippage.'
+    }
+    if (msg.includes('chain') || msg.includes('network')) {
+      return 'Please switch your wallet to Robinhood Chain (ID: 4663).'
+    }
+    return msg.slice(0, 100)
+  }
+
   // Handle Token Approval
   async function handleApprove() {
     if (!address || !embeddedWallet || !token.tokenAddress) return
     setApproving(true)
+
     try {
       await embeddedWallet.switchChain(activeChain.id)
       const provider = await embeddedWallet.getEthereumProvider()
@@ -222,22 +286,25 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
 
       toast(`Approving $${token.symbol} access in wallet...`)
 
-      await walletClient.sendTransaction({
+      const txHash = await walletClient.sendTransaction({
         account,
-        to: token.tokenAddress,
+        to: getAddress(token.tokenAddress),
         data: calldata,
         gas: 100000n,
       })
 
+      const pubClient = createPublicClient({
+        chain: robinhoodChain,
+        transport: http('https://robinhood-rpc.publicnode.com'),
+      })
+
+      toast('Waiting for approval confirmation on Robinhood Chain...')
+      await pubClient.waitForTransactionReceipt({ hash: txHash })
+
       setNeedsApproval(false)
       toast.success(`Access approved for $${token.symbol}!`)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Approval failed'
-      if (msg.includes('cancel') || msg.includes('reject')) {
-        toast.error('Approval canceled.')
-      } else {
-        toast.error(msg.slice(0, 100))
-      }
+      toast.error(mapErrorMessage(err))
     } finally {
       setApproving(false)
     }
@@ -249,7 +316,8 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
     setSwapping(true)
 
     try {
-      await embeddedWallet.switchChain(activeChain.id)
+      // 1. Validate Network
+      await embeddedWallet.switchChain(ROBINHOOD_CHAIN_ID)
       const provider = await embeddedWallet.getEthereumProvider()
       const { createWalletClient, custom } = await import('viem')
       const walletClient = createWalletClient({
@@ -259,8 +327,13 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
       const [account] = await walletClient.getAddresses()
       const userAddr = getAddress(address)
 
+      const pubClient = createPublicClient({
+        chain: robinhoodChain,
+        transport: http('https://robinhood-rpc.publicnode.com'),
+      })
+
       if (isCurve) {
-        // Active Bonding Curve Route
+        // ── ROUTE 1: ACTIVE PONS V2 BONDING CURVE ──
         if (isBuy) {
           toast(`Buying $${token.symbol} on Bonding Curve...`)
           const quoteIn = parseEther(amount)
@@ -272,13 +345,17 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
             args: [quoteIn, minTokensOut, userAddr],
           })
 
-          await walletClient.sendTransaction({
+          const txHash = await walletClient.sendTransaction({
             account,
-            to: curveAddress,
+            to: getAddress(curveAddress as string),
             value: quoteIn,
             data: calldata,
             gas: 300000n,
           })
+
+          toast('Confirming swap on blockchain...')
+          await pubClient.waitForTransactionReceipt({ hash: txHash })
+          toast.success(`Swap successful! Bought $${token.symbol}`)
         } else {
           toast(`Selling $${token.symbol} to Bonding Curve...`)
           const tokensIn = parseUnits(amount, 18)
@@ -290,107 +367,87 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
             args: [tokensIn, minQuoteOut, userAddr],
           })
 
-          await walletClient.sendTransaction({
+          const txHash = await walletClient.sendTransaction({
             account,
-            to: curveAddress,
+            to: getAddress(curveAddress as string),
             data: calldata,
             gas: 300000n,
           })
+
+          toast('Confirming sell on blockchain...')
+          await pubClient.waitForTransactionReceipt({ hash: txHash })
+          toast.success(`Swap successful! Sold $${token.symbol} for ETH`)
         }
       } else {
-        // Graduated DEX Route
-        const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200)
-        const fee = token.poolFee || 10000
-        const tokenAddr = getAddress(token.tokenAddress)
+        // ── ROUTE 2: UNISWAP TRADING API / UNIVERSAL ROUTER (GRADUATED) ──
+        toast(`Fetching Uniswap swap transaction for $${token.symbol}...`)
 
-        if (isBuy) {
-          toast(`Buying $${token.symbol} on Uniswap v4 / DEX...`)
-          const amountInWei = parseEther(amount)
-          const calldata = encodeFunctionData({
-            abi: SWAP_ABI,
-            functionName: 'exactInputSingle',
-            args: [
-              {
-                tokenIn: WETH,
-                tokenOut: tokenAddr,
-                fee,
-                recipient: userAddr,
-                deadline,
-                amountIn: amountInWei,
-                amountOutMinimum: 0n,
-                sqrtPriceLimitX96: 0n,
-              },
-            ],
-          })
+        // Request transaction payload from server
+        const swapRes = await fetch('/api/uniswap/swap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            quote: quoteData?.raw || {
+              tokenIn: isBuy ? NATIVE_ETH : token.tokenAddress,
+              tokenOut: isBuy ? token.tokenAddress : NATIVE_ETH,
+              amount: isBuy ? parseEther(amount).toString() : parseUnits(amount, 18).toString(),
+            },
+          }),
+        })
 
-          await walletClient.sendTransaction({
+        const swapJson = await swapRes.json()
+        const targetTo = (swapJson.to || UNIVERSAL_ROUTER) as `0x${string}`
+        const targetValue = isBuy ? parseEther(amount) : (swapJson.value ? BigInt(swapJson.value) : 0n)
+        const targetData = swapJson.data || '0x'
+
+        // Transaction Simulation / Pre-validation
+        try {
+          await pubClient.estimateGas({
             account,
-            to: SWAP_ROUTER,
-            value: amountInWei,
-            data: calldata,
-            gas: 400000n,
+            to: targetTo,
+            value: targetValue,
+            data: targetData,
           })
+        } catch {
+          // Continue if simulation has fallback
+        }
+
+        const txHash = await walletClient.sendTransaction({
+          account,
+          to: targetTo,
+          value: targetValue,
+          data: targetData,
+          gas: swapJson.gasLimit ? BigInt(swapJson.gasLimit) : 400000n,
+        })
+
+        toast('Waiting for Uniswap transaction confirmation...')
+        const receipt = await pubClient.waitForTransactionReceipt({ hash: txHash })
+
+        if (receipt.status === 'success') {
+          toast.success(
+            <div>
+              <p className="font-bold">Swap Successful on Uniswap!</p>
+              <a
+                href={`https://robinhoodchain.blockscout.com/tx/${txHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] underline text-amber-300"
+              >
+                View on Blockscout ↗
+              </a>
+            </div>
+          )
         } else {
-          toast(`Selling $${token.symbol} on Uniswap v4 / DEX...`)
-          const tokensIn = parseUnits(amount, 18)
-          const swapCall = encodeFunctionData({
-            abi: SWAP_ABI,
-            functionName: 'exactInputSingle',
-            args: [
-              {
-                tokenIn: tokenAddr,
-                tokenOut: WETH,
-                fee,
-                recipient: SWAP_ROUTER,
-                deadline,
-                amountIn: tokensIn,
-                amountOutMinimum: 0n,
-                sqrtPriceLimitX96: 0n,
-              },
-            ],
-          })
-
-          const unwrapCall = encodeFunctionData({
-            abi: SWAP_ABI,
-            functionName: 'unwrapWETH9',
-            args: [0n, userAddr],
-          })
-
-          const calldata = encodeFunctionData({
-            abi: SWAP_ABI,
-            functionName: 'multicall',
-            args: [[swapCall, unwrapCall]],
-          })
-
-          await walletClient.sendTransaction({
-            account,
-            to: SWAP_ROUTER,
-            data: calldata,
-            gas: 450000n,
-          })
+          throw new Error('Swap transaction reverted on-chain.')
         }
       }
 
-      toast.success(
-        `Swap ${isBuy ? `ETH → $${token.symbol}` : `$${token.symbol} → ETH`} successful!`
-      )
       setAmount('')
       await Promise.all([refetchBalance(), fetchTokenBal()])
       if (onSwapSuccess) onSwapSuccess()
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Swap failed'
-      if (
-        msg.includes('cancel') ||
-        msg.includes('reject') ||
-        msg.includes('denied') ||
-        msg.includes('User rejected')
-      ) {
-        toast.error('Transaction canceled.')
-      } else if (msg.includes('insufficient funds') || msg.includes('exceeds')) {
-        toast.error('Insufficient funds for amount + gas fee.')
-      } else {
-        toast.error(msg.slice(0, 120))
-      }
+      console.error('Swap execution error:', err)
+      toast.error(mapErrorMessage(err))
     } finally {
       setSwapping(false)
     }
@@ -491,7 +548,7 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
             </span>
             <span className="text-[11px] text-zinc-300 font-bold">100% Raised → Uniswap v4 Locked</span>
           </div>
-          <span className="text-[10px] text-amber-300 font-mono font-bold uppercase hidden sm:inline">DEX LIVE</span>
+          <span className="text-[10px] text-amber-300 font-mono font-bold uppercase hidden sm:inline">UNISWAP POOL</span>
         </div>
       )}
 
@@ -600,7 +657,9 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
       <div className="bg-[#121519] border-2 border-zinc-700 rounded-lg p-4 flex flex-col gap-2 shadow-[3px_3px_0px_0px_#000000]">
         <div className="flex items-center justify-between text-xs text-zinc-400">
           <span className="font-black uppercase">{isBuy ? '// YOU_RECEIVE' : '// YOU_RECEIVE (ETH)'}</span>
-          <span className="text-[10px] text-zinc-500 font-bold uppercase">EST. OUTPUT</span>
+          <span className="text-[10px] text-zinc-500 font-bold uppercase">
+            {fetchingQuote ? 'FETCHING QUOTE...' : 'EST. OUTPUT'}
+          </span>
         </div>
 
         <div className="flex items-center justify-between gap-3">
@@ -636,7 +695,7 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
         <div className="flex justify-between">
           <span>EXECUTION ROUTE:</span>
           <span className={`font-bold ${isGraduated ? 'text-amber-400' : 'text-zinc-300'}`}>
-            {isGraduated ? 'UNISWAP V4 (DEX ROUTER)' : 'PONS V2 BONDING CURVE'}
+            {executionRouteDisplay}
           </span>
         </div>
       </div>
@@ -662,27 +721,23 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
           disabled={approving || swapping}
           className="w-full py-3.5 text-xs font-black uppercase"
         >
-          {approving ? 'APPROVING TOKEN...' : `APPROVE $${token.symbol} ACCESS`}
+          {approving ? 'APPROVING TOKEN ACCESS...' : `APPROVE $${token.symbol} ACCESS`}
         </Button>
       ) : (
         <Button
           variant={isBuy ? 'primary' : 'danger'}
           onClick={handleSwap}
-          disabled={!hasSufficientBalance || swapping || approving}
+          disabled={!hasSufficientBalance || swapping || approving || fetchingQuote}
           loading={swapping}
           className="w-full py-3.5 text-xs font-black uppercase"
         >
           {swapping
-            ? 'SWAPPING ON DEX...'
+            ? 'CONFIRMING TRANSACTION...'
             : !hasSufficientBalance
             ? 'INSUFFICIENT BALANCE'
             : isBuy
-            ? isGraduated
-              ? `SWAP ETH → $${token.symbol}`
-              : `BUY $${token.symbol} ON CURVE`
-            : isGraduated
-            ? `SWAP $${token.symbol} → ETH`
-            : `SELL $${token.symbol} TO CURVE`}
+            ? `BUY $${token.symbol} WITH ETH`
+            : `SELL $${token.symbol} FOR ETH`}
         </Button>
       )}
 
