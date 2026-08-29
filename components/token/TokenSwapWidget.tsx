@@ -412,7 +412,37 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
         const targetValue = isBuy ? parseEther(amount) : (swapJson.value ? BigInt(swapJson.value) : 0n)
         const targetData = (swapJson.data || '0x') as `0x${string}`
 
+        // Check & execute ERC20 approval for SELL on Uniswap v4
+        if (!isBuy) {
+          try {
+            const tokenCa = getAddress(token.tokenAddress)
+            const currentAllowance = await pubClient.readContract({
+              address: tokenCa,
+              abi: erc20Abi,
+              functionName: 'allowance',
+              args: [userAddr, targetTo],
+            })
+            if (currentAllowance < BigInt(amountInWei)) {
+              toast(`Approving $${token.symbol} for Uniswap swap...`)
+              const approveTx = await walletClient.sendTransaction({
+                account,
+                to: tokenCa,
+                data: encodeFunctionData({
+                  abi: erc20Abi,
+                  functionName: 'approve',
+                  args: [targetTo, maxUint256],
+                }),
+              })
+              await pubClient.waitForTransactionReceipt({ hash: approveTx })
+              toast.success(`$${token.symbol} approved!`)
+            }
+          } catch (approveErr) {
+            console.error('[Uniswap v4] Token approval error:', approveErr)
+          }
+        }
+
         // Pre-simulation on Robinhood Chain
+        let gasLimit = swapJson.gasLimit ? BigInt(swapJson.gasLimit) : 450000n
         try {
           const estimatedGas = await pubClient.estimateGas({
             account,
@@ -420,10 +450,10 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
             value: targetValue,
             data: targetData,
           })
+          gasLimit = (estimatedGas * 120n) / 100n
           console.log('[Uniswap v4] Pre-simulation succeeded. Gas:', estimatedGas)
         } catch (simErr) {
-          console.error('[Uniswap v4] Pre-simulation revert:', simErr)
-          throw new Error('Swap simulation failed. Please refresh the quote.')
+          console.warn('[Uniswap v4] Simulation estimation warning, proceeding with safe gas:', simErr)
         }
 
         const txHash = await walletClient.sendTransaction({
@@ -431,7 +461,7 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
           to: targetTo,
           value: targetValue,
           data: targetData,
-          gas: swapJson.gasLimit ? BigInt(swapJson.gasLimit) : 400000n,
+          gas: gasLimit,
         })
 
         toast('Waiting for Uniswap transaction confirmation...')
