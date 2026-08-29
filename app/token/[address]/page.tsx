@@ -113,7 +113,7 @@ export default function TokenDetailPage({ params }: PageProps) {
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen bg-transparent text-zinc-100 font-mono">
-        <Navbar onLogout={async () => logout()} loggingOut={false} />
+        <Navbar />
         <main className="flex-1 flex items-center justify-center min-h-[60vh]">
           <Spinner size="lg" />
         </main>
@@ -125,7 +125,7 @@ export default function TokenDetailPage({ params }: PageProps) {
   if (!cleanCa || !token) {
     return (
       <div className="flex flex-col min-h-screen bg-transparent text-zinc-100 font-mono">
-        <Navbar onLogout={async () => logout()} loggingOut={false} />
+        <Navbar />
         <main className="flex-1 max-w-4xl mx-auto px-4 py-16 text-center flex flex-col items-center justify-center gap-4">
           <div className="w-16 h-16 rounded-none bg-black border-2 border-white flex items-center justify-center text-zinc-400 shadow-[3px_3px_0px_0px_#ffffff]">
             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -159,13 +159,7 @@ export default function TokenDetailPage({ params }: PageProps) {
   return (
     <div className="flex flex-col min-h-screen bg-transparent text-zinc-100 font-mono animate-fadeIn">
       {/* Navigation */}
-      <Navbar
-        onLogout={async () => {
-          setLoggingOut(true)
-          await logout()
-        }}
-        loggingOut={loggingOut}
-      />
+      <Navbar />
 
       {/* Main Terminal Body */}
       <main className="flex-1 w-full max-w-[1720px] mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8">

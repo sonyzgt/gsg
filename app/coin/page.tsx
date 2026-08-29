@@ -47,13 +47,7 @@ export default function CoinPage() {
   return (
     <div className="flex flex-col min-h-screen bg-transparent text-zinc-100 animate-fadeIn">
       {/* Navigation */}
-      <Navbar
-        onLogout={async () => {
-          setLoggingOut(true)
-          await logout()
-        }}
-        loggingOut={loggingOut}
-      />
+      <Navbar />
 
       {/* Main Coin Explorer */}
       <main className="flex-1 w-full max-w-[1720px] mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10">

@@ -498,13 +498,7 @@ export default function LaunchPage() {
   return (
     <div className="flex flex-col min-h-screen bg-transparent text-zinc-100 animate-fadeIn">
       {/* Navigation */}
-      <Navbar
-        onLogout={async () => {
-          setLoggingOut(true)
-          await logout()
-        }}
-        loggingOut={loggingOut}
-      />
+      <Navbar />
 
       <main className="flex-1 w-full max-w-[1720px] mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10 font-mono">
         <div className="max-w-6xl mx-auto flex flex-col gap-6 sm:gap-8">

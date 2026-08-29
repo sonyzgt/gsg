@@ -32,6 +32,7 @@ export default function Navbar({
 
   const handleDisconnect = async () => {
     setIsDisconnecting(true)
+    setDropdownOpen(false)
     try {
       if (Array.isArray(wallets) && wallets.length > 0) {
         await Promise.allSettled(
@@ -48,7 +49,6 @@ export default function Navbar({
       console.warn('Disconnect error:', err)
     } finally {
       setIsDisconnecting(false)
-      setDropdownOpen(false)
     }
   }
 
@@ -336,11 +336,11 @@ export default function Navbar({
                     <button
                       type="button"
                       onClick={handleDisconnect}
-                      disabled={loggingOut || isDisconnecting}
+                      disabled={isDisconnecting}
                       className="flex items-center gap-2.5 px-2.5 py-2 rounded text-xs font-bold text-rose-400 hover:text-white hover:bg-rose-600 transition-all w-full text-left cursor-pointer"
                     >
                       <span>[✕]</span>
-                      <span>{isDisconnecting || loggingOut ? 'DISCONNECTING...' : 'DISCONNECT'}</span>
+                      <span>{isDisconnecting ? 'DISCONNECTING...' : 'DISCONNECT'}</span>
                     </button>
                   </div>
                 </>
