@@ -382,34 +382,48 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
         // ── ROUTE 2: UNISWAP TRADING API / UNIVERSAL ROUTER (GRADUATED) ──
         toast(`Fetching Uniswap swap transaction for $${token.symbol}...`)
 
-        // Request transaction payload from server
+        // Request exact Uniswap v4 Universal Router calldata from server
+        const amountInWei = isBuy ? parseEther(amount).toString() : parseUnits(amount, 18).toString()
+        const minAmountOutWei = quoteData?.minAmountOut || (isBuy ? parseUnits(Math.floor(minReceived).toString(), 18).toString() : parseEther(minReceived.toFixed(18)).toString())
+        const deadline = Math.floor(Date.now() / 1000) + 1200
+
         const swapRes = await fetch('/api/uniswap/swap', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            quote: quoteData?.raw || {
-              tokenIn: isBuy ? NATIVE_ETH : token.tokenAddress,
-              tokenOut: isBuy ? token.tokenAddress : NATIVE_ETH,
-              amount: isBuy ? parseEther(amount).toString() : parseUnits(amount, 18).toString(),
-            },
+            isBuy,
+            tokenAddress: token.tokenAddress,
+            amountIn: amountInWei,
+            minAmountOut: minAmountOutWei,
+            deadline,
+            hookAddress: token.poolKey?.hooks || '0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044',
+            fee: token.poolFee || 0,
+            tickSpacing: token.tickSpacing || 200,
+            quote: quoteData?.raw,
           }),
         })
 
         const swapJson = await swapRes.json()
+        if (!swapJson.success && swapJson.error) {
+          throw new Error(swapJson.error)
+        }
+
         const targetTo = (swapJson.to || UNIVERSAL_ROUTER) as `0x${string}`
         const targetValue = isBuy ? parseEther(amount) : (swapJson.value ? BigInt(swapJson.value) : 0n)
-        const targetData = swapJson.data || '0x'
+        const targetData = (swapJson.data || '0x') as `0x${string}`
 
-        // Transaction Simulation / Pre-validation
+        // Pre-simulation on Robinhood Chain
         try {
-          await pubClient.estimateGas({
+          const estimatedGas = await pubClient.estimateGas({
             account,
             to: targetTo,
             value: targetValue,
             data: targetData,
           })
-        } catch {
-          // Continue if simulation has fallback
+          console.log('[Uniswap v4] Pre-simulation succeeded. Gas:', estimatedGas)
+        } catch (simErr) {
+          console.error('[Uniswap v4] Pre-simulation revert:', simErr)
+          throw new Error('Swap simulation failed. Please refresh the quote.')
         }
 
         const txHash = await walletClient.sendTransaction({
