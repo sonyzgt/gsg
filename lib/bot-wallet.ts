@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
+import { privateKeyToAccount } from 'viem/accounts'
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import { isAddress, getAddress, createPublicClient, http, formatEther, parseEther } from 'viem'
@@ -15,12 +15,19 @@ export interface BotUser {
   profileImage?: string
   privyUserId?: string
   privyWalletAddress?: `0x${string}`
-  walletAddress: `0x${string}` // Dedicated execution sub-wallet
+  walletAddress: `0x${string}` // 1 Single Permanent Wallet for this Twitter Account
   encryptedPrivateKey: string
   iv: string
   tag: string
   createdAt: number
   totalLaunches: number
+}
+
+// Generate 1 single deterministic private key per Twitter Handle
+export function deriveDeterministicPrivateKey(twitterHandle: string): `0x${string}` {
+  const clean = twitterHandle.replace('@', '').toLowerCase().trim()
+  const hash = crypto.createHmac('sha256', ENCRYPTION_KEY).update(`ponscore_twitter_wallet_${clean}`).digest('hex')
+  return `0x${hash}` as `0x${string}`
 }
 
 export function encryptPrivateKey(privateKey: string): { encrypted: string; iv: string; tag: string } {
@@ -90,12 +97,12 @@ export async function getOrCreateBotUser({
   privyUserId?: string
   privyWalletAddress?: string
 }): Promise<BotUser> {
-  const cleanHandle = twitterHandle.replace('@', '').toLowerCase()
+  const cleanHandle = twitterHandle.replace('@', '').toLowerCase().trim()
   const users = await getBotUsers()
   
   const existing = users.find(u => 
-    u.twitterId === twitterId || 
     u.twitterHandle.toLowerCase() === cleanHandle ||
+    (twitterId && u.twitterId === twitterId) ||
     (privyUserId && u.privyUserId === privyUserId)
   )
 
@@ -111,12 +118,13 @@ export async function getOrCreateBotUser({
     return existing
   }
 
-  const privateKey = generatePrivateKey()
+  // Generate 1 Single Fixed Permanent Wallet for this Twitter Account
+  const privateKey = deriveDeterministicPrivateKey(cleanHandle)
   const account = privateKeyToAccount(privateKey)
   const { encrypted, iv, tag } = encryptPrivateKey(privateKey)
 
   const newUser: BotUser = {
-    twitterId,
+    twitterId: twitterId || `tw_${cleanHandle}`,
     twitterHandle: cleanHandle,
     name: name || cleanHandle,
     profileImage,
