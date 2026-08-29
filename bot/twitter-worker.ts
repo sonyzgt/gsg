@@ -1,7 +1,7 @@
 import { createWalletClient, createPublicClient, http, parseEther, formatEther, getAddress, parseAbi, decodeEventLog } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { robinhoodChain } from '../lib/chains'
-import { getBotUsers, decryptPrivateKey, saveBotUsers, BotUser } from '../lib/bot-wallet'
+import { getBotUsers, getOrCreateBotUser, decryptPrivateKey, saveBotUsers, BotUser } from '../lib/bot-wallet'
 import path from 'path'
 import { readFile, writeFile } from 'fs/promises'
 import { readFileSync, existsSync } from 'fs'
@@ -94,13 +94,16 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
 }> {
   const cleanHandle = payload.authorHandle.replace('@', '').toLowerCase()
   const users = await getBotUsers()
-  const user = users.find(u => u.twitterHandle.toLowerCase() === cleanHandle)
+  let user = users.find(u => u.twitterHandle.toLowerCase() === cleanHandle)
 
+  // Auto-create dedicated EVM wallet on the fly if not exists
   if (!user) {
-    return {
-      success: false,
-      message: `@${payload.authorHandle} Your Twitter account is not registered. Link your wallet at https://ponscore.app/bot to launch tokens.`,
-    }
+    user = await getOrCreateBotUser({
+      twitterId: `tw_${cleanHandle}`,
+      twitterHandle: cleanHandle,
+      name: cleanHandle,
+    })
+    console.log(`[Twitter Worker] Automatically generated launch wallet ${user.walletAddress} for @${payload.authorHandle}`)
   }
 
   const parsed = parseTweetLaunchCommand(
@@ -128,7 +131,7 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
   if (balance < requiredBalance) {
     return {
       success: false,
-      message: `@${payload.authorHandle} Your deposit wallet (${user.walletAddress.slice(0, 6)}...${user.walletAddress.slice(-4)}) has insufficient ETH (${formatEther(balance)} ETH). Top up at least 0.001 ETH at https://ponscore.app/bot`,
+      message: `@${payload.authorHandle} Launch wallet ready: ${user.walletAddress}. Deposit 0.001 ETH on Robinhood Chain to deploy ${parsed.symbol}.`,
     }
   }
 
