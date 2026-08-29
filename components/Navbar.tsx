@@ -335,15 +335,6 @@ export default function Navbar({
                       <span>WALLET & PORTFOLIO</span>
                     </Link>
 
-                    <Link
-                      href="/admin"
-                      onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-2.5 py-2 rounded text-xs font-bold text-amber-400 hover:text-black hover:bg-amber-400 transition-all cursor-pointer"
-                    >
-                      <span>[⚙]</span>
-                      <span>ADMIN PANEL</span>
-                    </Link>
-
                     <div className="my-1 border-t border-zinc-800" />
 
                     <button
