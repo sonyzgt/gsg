@@ -4,6 +4,28 @@ import { robinhoodChain } from '../lib/chains'
 import { getBotUsers, decryptPrivateKey, saveBotUsers, BotUser } from '../lib/bot-wallet'
 import path from 'path'
 import { readFile, writeFile } from 'fs/promises'
+import { readFileSync, existsSync } from 'fs'
+
+// Auto-load .env.local for standalone execution
+function loadEnvLocal() {
+  const envPath = path.join(process.cwd(), '.env.local')
+  if (existsSync(envPath)) {
+    const raw = readFileSync(envPath, 'utf-8')
+    for (const line of raw.split('\n')) {
+      const trimmed = line.trim()
+      if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+        const [k, ...v] = trimmed.split('=')
+        const key = k.trim()
+        const val = v.join('=').trim().replace(/^["']|["']$/g, '')
+        if (key && !process.env[key]) {
+          process.env[key] = val
+        }
+      }
+    }
+  }
+}
+loadEnvLocal()
+
 import crypto from 'crypto'
 
 const FACTORY_ADDRESS = '0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e' as `0x${string}`
