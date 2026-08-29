@@ -462,199 +462,250 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
         </div>
       )}
 
-      {/* Input Box */}
-      <div className="bg-[#121519] border-2 border-zinc-700 rounded-lg p-4 flex flex-col gap-3 shadow-[3px_3px_0px_0px_#000000]">
-        <div className="flex items-center justify-between text-xs text-zinc-400">
-          <span className="font-black uppercase">// YOU_PAY</span>
-          <div className="flex items-center gap-1.5">
-            <span>
-              BAL: {isBuy ? `${ethBalanceNum.toFixed(4)} ETH` : `${tokenBalanceNum.toLocaleString()} $${token.symbol}`}
+      {/* If token is graduated to Uniswap v4 */}
+      {isGraduated ? (
+        <div className="flex flex-col gap-4 bg-[#121519] border-2 border-amber-400/80 rounded-lg p-4 sm:p-5 shadow-[3px_3px_0px_0px_#f59e0b]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-black px-2 py-0.5 bg-amber-400 text-black border border-black uppercase">
+              GRADUATED TO UNISWAP V4
             </span>
-            <button
-              type="button"
-              onClick={() =>
-                setAmount(
-                  isBuy
-                    ? Math.max(0, ethBalanceNum - 0.0002).toFixed(4)
-                    : tokenBalanceNum >= 1
-                    ? Math.floor(tokenBalanceNum).toString()
-                    : tokenBalanceNum.toString()
-                )
-              }
-              className="text-theme-light hover:underline font-black cursor-pointer uppercase"
+            <span className="text-[10px] text-amber-300 font-bold uppercase">100% RAISED</span>
+          </div>
+
+          <p className="text-xs text-zinc-300 font-sans leading-relaxed">
+            Target bonding curve (4.2 ETH) telah tercapai 100%. Likuiditas telah dikunci permanen di Uniswap v4. Perdagangan aktif di DEX aggregators.
+          </p>
+
+          <div className="bg-black border border-zinc-800 rounded p-3 text-xs flex flex-col gap-1.5 text-zinc-400">
+            <div className="flex justify-between">
+              <span>STATUS:</span>
+              <span className="text-amber-400 font-bold">UNISWAP V4 (LOCKED)</span>
+            </div>
+            <div className="flex justify-between">
+              <span>EST. MARKET CAP:</span>
+              <span className="text-white font-bold">${(token.priceUsd * 1000000000).toLocaleString('en-US', { maximumFractionDigits: 0 })} USD</span>
+            </div>
+            <div className="flex justify-between">
+              <span>EST. PRICE:</span>
+              <span className="text-white font-bold">{token.priceNative.toFixed(9)} ETH</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 pt-1">
+            <a
+              href={`https://dexscreener.com/robinhood/${token.tokenAddress}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-3 bg-[#181b20] hover:bg-white text-white hover:text-black border-2 border-white text-xs font-black uppercase text-center rounded shadow-[2px_2px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              [MAX]
-            </button>
+              <span>TRADE ON DEXSCREENER</span>
+            </a>
+            <a
+              href={`https://gmgn.ai/robinhood/token/${token.tokenAddress}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 bg-black hover:bg-amber-400 text-amber-300 hover:text-black border-2 border-amber-400 text-xs font-black uppercase text-center rounded shadow-[2px_2px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>TRADE ON GMGN.AI</span>
+            </a>
+            <a
+              href={`https://robinhoodchain.blockscout.com/token/${token.tokenAddress}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2 bg-black hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-700 text-[11px] font-bold uppercase text-center rounded transition-all cursor-pointer"
+            >
+              <span>VIEW POOL ON BLOCKSCOUT</span>
+            </a>
           </div>
         </div>
-
-        <div className="flex items-center justify-between gap-3">
-          <input
-            type="number"
-            step="any"
-            min="0"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.0"
-            className="flex-1 w-0 min-w-0 bg-transparent text-2xl sm:text-3xl font-black text-white placeholder-zinc-700 focus:outline-none"
-          />
-
-          <div className="flex items-center gap-2 bg-black px-3 py-1.5 rounded border border-zinc-700 flex-shrink-0">
-            {isBuy ? (
-              <>
-                <SparkleIcon size={18} className="flex-shrink-0" />
-                <span className="text-xs font-black text-white">ETH</span>
-              </>
-            ) : (
-              <>
-                <div className="w-5 h-5 rounded-none overflow-hidden border border-white flex items-center justify-center bg-black">
-                  <TokenImage
-                    src={token.logo}
-                    alt={token.symbol}
-                    size={20}
-                    sparkleSize={14}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <span className="text-xs font-black text-white truncate max-w-[80px]">
-                  {token.symbol}
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Quick Amount Pills */}
-        <div className="grid grid-cols-4 gap-1.5 pt-1">
-          {isBuy
-            ? [
-                { label: '0.001', val: '0.001' },
-                { label: '0.005', val: '0.005' },
-                { label: '0.01', val: '0.01' },
-                { label: '0.05', val: '0.05' },
-              ].map((c) => (
-                <button
-                  key={c.label}
-                  type="button"
-                  onClick={() => setAmount(c.val)}
-                  className="py-1 rounded bg-black hover:bg-white text-zinc-300 hover:text-black border border-zinc-700 hover:border-white text-[10px] sm:text-xs font-black transition-all shadow-[1px_1px_0px_0px_#000000] cursor-pointer"
-                >
-                  {c.label} ETH
-                </button>
-              ))
-            : [
-                { label: '25%', pct: 0.25 },
-                { label: '50%', pct: 0.5 },
-                { label: '75%', pct: 0.75 },
-                { label: '100%', pct: 1.0 },
-              ].map((c) => (
-                <button
-                  key={c.label}
-                  type="button"
-                  onClick={() => {
-                    const raw = tokenBalanceNum * c.pct
-                    setAmount(raw >= 1 ? Math.floor(raw).toString() : raw.toFixed(2))
-                  }}
-                  className="py-1 rounded bg-black hover:bg-rose-600 text-zinc-300 hover:text-white border border-zinc-700 hover:border-white text-[10px] sm:text-xs font-black transition-all shadow-[1px_1px_0px_0px_#000000] cursor-pointer"
-                >
-                  {c.label}
-                </button>
-              ))}
-        </div>
-      </div>
-
-      {/* Output Preview */}
-      <div className="bg-[#121519] border-2 border-zinc-700 rounded-lg p-4 flex flex-col gap-2 shadow-[3px_3px_0px_0px_#000000]">
-        <div className="flex items-center justify-between text-xs text-zinc-400">
-          <span className="font-black uppercase">{isBuy ? '// YOU_RECEIVE' : '// YOU_RECEIVE (ETH)'}</span>
-          <span className="text-[10px] text-zinc-500 font-bold uppercase">EST. OUTPUT</span>
-        </div>
-
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xl sm:text-2xl font-black text-theme-light truncate">
-            {estimatedOutput > 0
-              ? isBuy
-                ? estimatedOutput.toLocaleString('en-US', { maximumFractionDigits: 2 })
-                : estimatedOutput.toFixed(6)
-              : '0.00'}
-          </span>
-          <span className="text-xs font-black text-white bg-black px-3 py-1.5 rounded border border-zinc-700 flex-shrink-0">
-            {isBuy ? `$${token.symbol}` : 'ETH'}
-          </span>
-        </div>
-      </div>
-
-      {/* Breakdown Details */}
-      <div className="bg-black border-2 border-zinc-800 rounded-lg p-3 flex flex-col gap-1.5 text-xs text-zinc-400">
-        <div className="flex justify-between">
-          <span>MIN. RECEIVED ({slippage}% SLIP):</span>
-          <span className="text-white font-bold">
-            {minReceived > 0
-              ? isBuy
-                ? `${minReceived.toLocaleString('en-US', { maximumFractionDigits: 2 })} $${token.symbol}`
-                : `${minReceived.toFixed(6)} ETH`
-              : '—'}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span>CREATOR TAX:</span>
-          <span className="font-bold text-theme-light">{(token.creatorTaxBps / 100).toFixed(1)}%</span>
-        </div>
-        <div className="flex justify-between">
-          <span>EXECUTION ROUTE:</span>
-          <span className={`font-bold ${isGraduated ? 'text-amber-400' : 'text-zinc-300'}`}>
-            {isGraduated ? 'UNISWAP V4 (DEX ROUTER)' : 'PONS V2 BONDING CURVE'}
-          </span>
-        </div>
-      </div>
-
-      {/* Action Button */}
-      {!authenticated || !address ? (
-        <Button
-          variant="primary"
-          onClick={async () => {
-            setLoggingIn(true)
-            await initOAuth({ provider: 'twitter' })
-          }}
-          loading={loggingIn}
-          className="w-full py-3.5 text-xs font-black uppercase"
-        >
-          CONNECT WALLET TO SWAP
-        </Button>
-      ) : amountNum <= 0 ? (
-        <Button variant="secondary" disabled className="w-full py-3.5 text-xs font-black opacity-60">
-          ENTER AMOUNT TO SWAP
-        </Button>
-      ) : !hasSufficientBalance ? (
-        <Button variant="secondary" disabled className="w-full py-3.5 text-xs font-black text-rose-300 border-rose-500">
-          INSUFFICIENT {isBuy ? 'ETH' : `$${token.symbol}`} BALANCE
-        </Button>
-      ) : needsApproval && !isBuy ? (
-        <Button
-          variant="accent"
-          onClick={handleApprove}
-          loading={approving}
-          disabled={approving}
-          className="w-full py-3.5 text-xs font-black uppercase shadow-xl"
-        >
-          {approving ? 'APPROVING...' : `1. APPROVE $${token.symbol}`}
-        </Button>
       ) : (
-        <Button
-          variant={isBuy ? 'primary' : 'danger'}
-          onClick={handleSwap}
-          loading={swapping}
-          disabled={swapping}
-          className="w-full py-3.5 text-xs font-black uppercase shadow-xl"
-        >
-          {swapping
-            ? 'CONFIRMING TX...'
-            : isBuy
-            ? `BUY $${token.symbol} WITH ETH`
-            : `SELL $${token.symbol} FOR ETH`}
-        </Button>
+        <>
+          {/* Amount Input Box */}
+          <div className="bg-[#121519] border-2 border-zinc-700 rounded-lg p-4 flex flex-col gap-3 shadow-[3px_3px_0px_0px_#000000]">
+            <div className="flex items-center justify-between text-xs text-zinc-400">
+              <span className="font-black uppercase">{isBuy ? '// YOU_PAY (ETH)' : `// YOU_PAY ($${token.symbol})`}</span>
+              <div className="flex items-center gap-1 font-bold">
+                <span>
+                  BAL: {isBuy ? `${ethBalanceNum.toFixed(4)} ETH` : `${tokenBalanceNum.toLocaleString()} $${token.symbol}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAmount(
+                      isBuy
+                        ? Math.max(0, ethBalanceNum - 0.0002).toFixed(4)
+                        : tokenBalanceNum >= 1
+                        ? Math.floor(tokenBalanceNum).toString()
+                        : tokenBalanceNum.toString()
+                    )
+                  }
+                  className="text-theme-light hover:underline font-black cursor-pointer uppercase"
+                >
+                  [MAX]
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <input
+                type="number"
+                step="any"
+                min="0"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.0"
+                className="flex-1 w-0 min-w-0 bg-transparent text-2xl sm:text-3xl font-black text-white placeholder-zinc-700 focus:outline-none"
+              />
+
+              <div className="flex items-center gap-2 bg-black px-3 py-1.5 rounded border border-zinc-700 flex-shrink-0">
+                {isBuy ? (
+                  <>
+                    <SparkleIcon size={18} className="flex-shrink-0" />
+                    <span className="text-xs font-black text-white">ETH</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-5 h-5 rounded-none overflow-hidden border border-white flex items-center justify-center bg-black">
+                      <TokenImage
+                        src={token.logo}
+                        alt={token.symbol}
+                        size={20}
+                        sparkleSize={14}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <span className="text-xs font-black text-white truncate max-w-[80px]">
+                      {token.symbol}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Amount Pills */}
+            <div className="grid grid-cols-4 gap-1.5 pt-1">
+              {isBuy
+                ? [
+                    { label: '0.001', val: '0.001' },
+                    { label: '0.005', val: '0.005' },
+                    { label: '0.01', val: '0.01' },
+                    { label: '0.05', val: '0.05' },
+                  ].map((c) => (
+                    <button
+                      key={c.label}
+                      type="button"
+                      onClick={() => setAmount(c.val)}
+                      className="py-1 rounded bg-black hover:bg-white text-zinc-300 hover:text-black border border-zinc-700 hover:border-white text-[10px] sm:text-xs font-black transition-all shadow-[1px_1px_0px_0px_#000000] cursor-pointer"
+                    >
+                      {c.label} ETH
+                    </button>
+                  ))
+                : [
+                    { label: '25%', pct: 0.25 },
+                    { label: '50%', pct: 0.5 },
+                    { label: '75%', pct: 0.75 },
+                    { label: '100%', pct: 1.0 },
+                  ].map((c) => (
+                    <button
+                      key={c.label}
+                      type="button"
+                      onClick={() => {
+                        const raw = tokenBalanceNum * c.pct
+                        setAmount(raw >= 1 ? Math.floor(raw).toString() : raw.toFixed(2))
+                      }}
+                      className="py-1 rounded bg-black hover:bg-rose-600 text-zinc-300 hover:text-white border border-zinc-700 hover:border-white text-[10px] sm:text-xs font-black transition-all shadow-[1px_1px_0px_0px_#000000] cursor-pointer"
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+            </div>
+          </div>
+
+          {/* Output Preview */}
+          <div className="bg-[#121519] border-2 border-zinc-700 rounded-lg p-4 flex flex-col gap-2 shadow-[3px_3px_0px_0px_#000000]">
+            <div className="flex items-center justify-between text-xs text-zinc-400">
+              <span className="font-black uppercase">{isBuy ? '// YOU_RECEIVE' : '// YOU_RECEIVE (ETH)'}</span>
+              <span className="text-[10px] text-zinc-500 font-bold uppercase">EST. OUTPUT</span>
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xl sm:text-2xl font-black text-theme-light truncate">
+                {estimatedOutput > 0
+                  ? isBuy
+                    ? estimatedOutput.toLocaleString('en-US', { maximumFractionDigits: 2 })
+                    : estimatedOutput.toFixed(6)
+                  : '0.00'}
+              </span>
+              <span className="text-xs font-black text-white bg-black px-3 py-1.5 rounded border border-zinc-700 flex-shrink-0">
+                {isBuy ? `$${token.symbol}` : 'ETH'}
+              </span>
+            </div>
+          </div>
+
+          {/* Breakdown Details */}
+          <div className="bg-black border-2 border-zinc-800 rounded-lg p-3 flex flex-col gap-1.5 text-xs text-zinc-400">
+            <div className="flex justify-between">
+              <span>MIN. RECEIVED ({slippage}% SLIP):</span>
+              <span className="text-white font-bold">
+                {minReceived > 0
+                  ? isBuy
+                    ? `${minReceived.toLocaleString('en-US', { maximumFractionDigits: 2 })} $${token.symbol}`
+                    : `${minReceived.toFixed(6)} ETH`
+                  : '—'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>CREATOR TAX:</span>
+              <span className="font-bold text-theme-light">{(token.creatorTaxBps / 100).toFixed(1)}%</span>
+            </div>
+            <div className="flex justify-between">
+              <span>EXECUTION ROUTE:</span>
+              <span className="text-zinc-300 font-bold">PONS V2 BONDING CURVE</span>
+            </div>
+          </div>
+
+          {/* Action Button */}
+          {!authenticated || !address ? (
+            <Button
+              variant="primary"
+              onClick={async () => {
+                setLoggingIn(true)
+                await initOAuth({ provider: 'twitter' })
+              }}
+              loading={loggingIn}
+              className="w-full py-3.5 text-xs font-black uppercase"
+            >
+              CONNECT WALLET TO SWAP
+            </Button>
+          ) : !isBuy && needsApproval ? (
+            <Button
+              variant="primary"
+              onClick={handleApprove}
+              loading={approving}
+              disabled={approving || swapping}
+              className="w-full py-3.5 text-xs font-black uppercase"
+            >
+              {approving ? 'APPROVING TOKEN...' : `APPROVE $${token.symbol} ACCESS`}
+            </Button>
+          ) : (
+            <Button
+              variant={isBuy ? 'primary' : 'danger'}
+              onClick={handleSwap}
+              disabled={!hasSufficientBalance || swapping || approving}
+              loading={swapping}
+              className="w-full py-3.5 text-xs font-black uppercase"
+            >
+              {swapping
+                ? 'SWAPPING ON CURVE...'
+                : !hasSufficientBalance
+                ? 'INSUFFICIENT BALANCE'
+                : isBuy
+                ? `BUY $${token.symbol} ON CURVE`
+                : `SELL $${token.symbol} TO CURVE`}
+            </Button>
+          )}
+        </>
       )}
     </div>
   )
 }
-

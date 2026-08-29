@@ -515,7 +515,7 @@ export async function getPonsTokenInfo(tokenAddress: string): Promise<PonsV2Toke
     // Calculate progress
     const raisedNum = parseFloat(formatEther(BigInt(realQuoteResStr)))
     const threshNum = parseFloat(formatEther(BigInt(graduationThreshold)))
-    const progress = threshNum > 0 ? Math.min(1, Math.max(0, raisedNum / threshNum)) : 0
+    const progress = (graduated || phase === 2) ? 1.0 : (threshNum > 0 ? Math.min(1, Math.max(0, raisedNum / threshNum)) : 0)
 
     const info: PonsV2TokenInfo = {
       tokenAddress: token,
