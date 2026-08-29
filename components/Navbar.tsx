@@ -86,7 +86,7 @@ export default function Navbar({
     }
   }
 
-  const isConnected = authenticated || !!address || !!user
+  const isConnected = authenticated && (!!address || !!user)
 
   const twitterAccount = user?.linkedAccounts?.find(
     (a) => a.type === 'twitter_oauth'

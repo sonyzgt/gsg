@@ -18,25 +18,32 @@ export function useWallet() {
   const [balanceEth, setBalanceEth] = useState<string | null>(null)
   const [balanceLoading, setBalanceLoading] = useState(false)
 
-  // 1. Ambil target address utama dari user profile
-  const userWalletAccount = user?.linkedAccounts?.find(
-    (a) => a.type === 'wallet' && (a as { walletClientType?: string }).walletClientType === 'privy'
-  ) as { address?: string } | undefined
+  // User authentication check
+  const isAuth = ready && (authenticated || !!user)
 
-  const primaryUserAddress = user?.wallet?.address ?? userWalletAccount?.address
+  // 1. Ambil target address utama dari user profile
+  const userWalletAccount = isAuth
+    ? (user?.linkedAccounts?.find(
+        (a) => a.type === 'wallet' && (a as { walletClientType?: string }).walletClientType === 'privy'
+      ) as { address?: string } | undefined)
+    : undefined
+
+  const primaryUserAddress = isAuth ? (user?.wallet?.address ?? userWalletAccount?.address) : undefined
 
   // 2. Cari embedded connected wallet yang sesuai dengan primary address
-  const embeddedWallet =
-    (primaryUserAddress ? wallets.find((w) => w.address.toLowerCase() === primaryUserAddress.toLowerCase()) : null) ??
-    getEmbeddedConnectedWallet(wallets) ??
-    wallets.find((w) => w.walletClientType === 'privy') ??
-    wallets[0]
+  const embeddedWallet = isAuth
+    ? ((primaryUserAddress ? wallets.find((w) => w.address.toLowerCase() === primaryUserAddress.toLowerCase()) : null) ??
+       getEmbeddedConnectedWallet(wallets) ??
+       wallets.find((w) => w.walletClientType === 'privy') ??
+       wallets[0])
+    : undefined
 
-  const fallbackAddress =
-    primaryUserAddress ??
-    (user?.linkedAccounts?.find((a) => a.type === 'wallet') as { address?: string } | undefined)?.address
+  const fallbackAddress = isAuth
+    ? (primaryUserAddress ??
+       (user?.linkedAccounts?.find((a) => a.type === 'wallet') as { address?: string } | undefined)?.address)
+    : undefined
 
-  const address = (embeddedWallet?.address ?? fallbackAddress) as `0x${string}` | undefined
+  const address = isAuth ? ((embeddedWallet?.address ?? fallbackAddress) as `0x${string}` | undefined) : undefined
 
   const createWalletAttempted = useRef(false)
 
