@@ -39,8 +39,8 @@
     "route": "UNISWAP_V4",
     "isUsdgPaired": false,
     "isNative": true,
-    "priceNative": 5.88e-9,
-    "priceUsd": 0.000014700000000000002,
+    "priceNative": 3.817e-8,
+    "priceUsd": 0.00009338,
     "progress": 1
   },
   {

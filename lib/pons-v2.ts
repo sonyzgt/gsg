@@ -496,13 +496,31 @@ export async function getPonsTokenInfo(tokenAddress: string): Promise<PonsV2Toke
       }
     } catch { /* ignore */ }
 
-    // When token has graduated to Uniswap v4, bonding curve reserves are swept to pool
+    // When token has graduated to Uniswap v4, fetch live market price from DexScreener / GeckoTerminal
     if (graduated || phase === 2) {
-      const threshWei = BigInt(graduationThreshold || '4200000000000000000')
-      // Accurate graduation price ~ (threshold ETH + initial virtual quote) / 1 Billion tokens
-      const finalGradPrice = (Number(threshWei) + 1.68e18) / 1e9 / 1e18
+      try {
+        const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${token}`, {
+          headers: { 'Accept': 'application/json' },
+          next: { revalidate: 15 },
+        })
+        if (dexRes.ok) {
+          const dexData = await dexRes.json()
+          if (dexData.pairs && dexData.pairs.length > 0) {
+            const pair = dexData.pairs[0]
+            const pNat = parseFloat(pair.priceNative || '0')
+            const pUsd = parseFloat(pair.priceUsd || '0')
+            if (pNat > 0) priceNative = pNat
+            if (pUsd > 0) priceUsd = pUsd
+          }
+        }
+      } catch {
+        /* fallback to calculation */
+      }
+
       if (priceNative === 0 || priceNative < 0.0000000001) {
-        priceNative = finalGradPrice > 0 ? finalGradPrice : 0.000000007
+        const threshWei = BigInt(graduationThreshold || '4200000000000000000')
+        const finalGradPrice = (Number(threshWei) + 1.68e18) / 1e9 / 1e18
+        priceNative = finalGradPrice > 0 ? finalGradPrice : 0.000000034
         priceUsd = priceNative * ethPriceUsd
       }
     }
