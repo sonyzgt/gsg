@@ -147,9 +147,6 @@ export default function Navbar({
               <span className="font-black text-lg sm:text-xl tracking-tighter text-white font-mono">
                 PONSCORE
               </span>
-              <span className="text-[9px] font-black font-mono px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
-                RH-4663
-              </span>
             </div>
           </Link>
         </div>

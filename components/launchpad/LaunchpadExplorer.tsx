@@ -176,9 +176,6 @@ export default function LaunchpadExplorer({
               <h1 className="text-sm sm:text-base font-black text-white uppercase tracking-tight">
                 Pons v2 Launchpad
               </h1>
-              <span className="text-[9px] font-black px-1.5 py-0.2 bg-[var(--theme-color)] text-black border border-black uppercase">
-                [RH-4663]
-              </span>
             </div>
             <p className="text-[11px] text-zinc-400 mt-1 font-sans leading-tight">
               Fair-launch tokens with automated anti-snipe bonding curves & Uniswap v4 locked liquidity.

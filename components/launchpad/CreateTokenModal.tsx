@@ -491,9 +491,6 @@ export default function CreateTokenModal({
               </p>
             </div>
           </div>
-          <span className="text-[10px] font-black bg-[var(--theme-color)] text-black px-2 py-0.5 border border-black flex-shrink-0">
-            [RH-4663]
-          </span>
         </div>
 
         {/* Basic Token Details */}
