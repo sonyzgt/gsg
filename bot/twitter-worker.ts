@@ -198,7 +198,7 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
     await markTweetProcessed(payload.tweetId)
     return {
       success: false,
-      message: `@${payload.authorHandle} Please attach an image to your tweet to launch $${tokenSymbol}.\n\nUsage:\n@agent_ponscore launch token $${tokenSymbol} (with image attached)`,
+      message: `@${payload.authorHandle} Please attach an image to your tweet to launch $${tokenSymbol}.\n\nUsage: @agent_ponscore launch token ${tokenSymbol} [attach image]`,
     }
   }
 
@@ -484,10 +484,19 @@ function generateOAuthHeader(method: string, url: string, params: Record<string,
     .join(', ')
 }
 
+function sanitizeCashtags(text: string): string {
+  let cashtagCount = 0
+  return text.replace(/\$([a-zA-Z0-9_]+)/g, (match, sym) => {
+    cashtagCount++
+    return cashtagCount <= 1 ? match : sym
+  })
+}
+
 async function postTwitterReply(replyText: string, inReplyToTweetId: string) {
   const url = 'https://api.twitter.com/2/tweets'
+  const primaryText = sanitizeCashtags(replyText)
   const body = JSON.stringify({
-    text: replyText,
+    text: primaryText,
     reply: { in_reply_to_tweet_id: inReplyToTweetId },
   })
 
@@ -505,10 +514,11 @@ async function postTwitterReply(replyText: string, inReplyToTweetId: string) {
     const errText = await res.text()
     console.error('[Twitter API Error] Failed to post reply:', res.status, errText)
 
-    // Handle X 403 (crypto address restriction on newly authenticated app)
+    // Handle X 403 (cashtags/crypto address restriction on X Free API)
     if (res.status === 403) {
-      console.log('[Twitter API] Retrying with sanitized reply text...')
+      console.log('[Twitter API] Retrying with sanitized reply text without cashtags...')
       const sanitized = replyText
+        .replace(/\$/g, '')
         .replace(/0x[a-fA-F0-9]{40}/g, 'Ponscore')
         .replace(/0x[a-fA-F0-9]{64}/g, 'Confirmed')
       
@@ -527,6 +537,9 @@ async function postTwitterReply(replyText: string, inReplyToTweetId: string) {
       })
       if (retryRes.ok) {
         console.log('[Twitter API] Sanitized reply posted successfully for tweet:', inReplyToTweetId)
+      } else {
+        const retryErr = await retryRes.text()
+        console.error('[Twitter API Error] Retry also failed:', retryRes.status, retryErr)
       }
     }
   } else {
