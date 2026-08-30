@@ -15,7 +15,7 @@ import {
   http,
   isAddress,
 } from 'viem'
-import { usePrivy, useLoginWithOAuth } from '@privy-io/react-auth'
+import { usePrivy, useLoginWithOAuth, useWallets } from '@privy-io/react-auth'
 import { useWallet } from '@/hooks/useWallet'
 import { activeChain, robinhoodChain } from '@/lib/chains'
 import {
@@ -82,6 +82,7 @@ interface UniswapQuoteResponse {
 
 export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidgetProps) {
   const { authenticated, user } = usePrivy()
+  const { wallets } = useWallets()
   const { address, balance, embeddedWallet, refetchBalance } = useWallet()
   const { theme } = useTheme()
   const [loggingIn, setLoggingIn] = useState(false)
@@ -307,23 +308,32 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
         return
       }
 
-      if (srvJson?.error) {
+      if (srvJson?.error && srvSwapRes.status !== 404) {
         throw new Error(srvJson.error)
       }
 
-      if (!embeddedWallet) {
-        throw new Error('Swap transaction failed')
+      // 2. Fallback to connected external wallet (WalletConnect / MetaMask / browser wallet)
+      const activeWallet = wallets?.find(w => w.address?.toLowerCase() === address?.toLowerCase()) || wallets?.[0] || embeddedWallet
+
+      let provider: any
+      if (activeWallet) {
+        try {
+          await activeWallet.switchChain(ROBINHOOD_CHAIN_ID)
+        } catch { /* continue */ }
+        provider = await activeWallet.getEthereumProvider()
+      } else if (typeof window !== 'undefined' && (window as any).ethereum) {
+        provider = (window as any).ethereum
+      } else {
+        throw new Error(srvJson?.error || 'Swap transaction failed')
       }
 
-      await embeddedWallet.switchChain(ROBINHOOD_CHAIN_ID)
-      const provider = await embeddedWallet.getEthereumProvider()
       const { createWalletClient, custom } = await import('viem')
       const walletClient = createWalletClient({
         chain: activeChain,
         transport: custom(provider),
       })
       const [account] = await walletClient.getAddresses()
-      const userAddr = getAddress(address)
+      const userAddr = getAddress(account || address)
 
       const pubClient = createPublicClient({
         chain: robinhoodChain,

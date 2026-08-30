@@ -13,7 +13,7 @@ import {
   formatEther,
   isAddress,
 } from 'viem'
-import { usePrivy, useLoginWithOAuth } from '@privy-io/react-auth'
+import { usePrivy, useLoginWithOAuth, useWallets } from '@privy-io/react-auth'
 import { useWallet } from '@/hooks/useWallet'
 import { activeChain } from '@/lib/chains'
 import Navbar from '@/components/Navbar'
@@ -38,6 +38,7 @@ import {
 export default function LaunchPage() {
   const router = useRouter()
   const { user, authenticated, ready, login, logout } = usePrivy()
+  const { wallets } = useWallets()
   const { address, embeddedWallet, balance, refetchBalance } = useWallet()
   const { theme } = useTheme()
   const [loggingOut, setLoggingOut] = useState(false)
@@ -270,13 +271,159 @@ export default function LaunchPage() {
         }),
       })
 
-      const launchJson = await launchRes.json()
+      const launchJson = await launchRes.json().catch(() => ({}))
 
-      if (!launchRes.ok || !launchJson.success) {
-        throw new Error(launchJson.error || 'Failed to launch token')
+      let deployedTokenCa = ''
+
+      if (launchRes.ok && launchJson?.success) {
+        deployedTokenCa = launchJson.tokenAddress
+      } else if (launchRes.status === 404 || launchJson?.error?.includes('Server wallet not found')) {
+        // Fallback to connected external wallet (WalletConnect / MetaMask)
+        const activeWallet = wallets?.find(w => w.address?.toLowerCase() === address?.toLowerCase()) || wallets?.[0] || embeddedWallet
+        let provider: any
+        if (activeWallet) {
+          try {
+            await activeWallet.switchChain(activeChain.id)
+          } catch { /* continue */ }
+          provider = await activeWallet.getEthereumProvider()
+        } else if (typeof window !== 'undefined' && (window as any).ethereum) {
+          provider = (window as any).ethereum
+        } else {
+          throw new Error(launchJson?.error || 'No wallet provider available')
+        }
+
+        const { createWalletClient, custom, createPublicClient, http, parseEventLogs } = await import('viem')
+        const walletClient = createWalletClient({
+          chain: activeChain,
+          transport: custom(provider),
+        })
+        const [account] = await walletClient.getAddresses()
+        const userAddr = getAddress(account || address)
+
+        const salt = generateRandomSalt()
+        const launchConfigId = 0n
+        const pairToken = zeroAddress
+        const expectedEconomics = await getPreviewLaunchEconomics(launchConfigId, pairToken)
+        const exactLaunchFee = await getLaunchFee()
+
+        const tokenParams = {
+          name: name.trim().slice(0, 32),
+          symbol: symbol.trim().toUpperCase().slice(0, 10),
+          logo: finalLogo,
+          description: description.trim().slice(0, 280) || `${name} fair launched on Pons v2`,
+          socials: {
+            twitter: twitter.trim().slice(0, 100),
+            telegram: telegram.trim().slice(0, 100),
+            discord: discord.trim().slice(0, 100),
+            website: website.trim().slice(0, 100),
+            farcaster: farcaster.trim().slice(0, 100),
+          },
+          creatorFeeRecipient: userAddr,
+          creatorTaxBps: Math.min(1000, Math.max(0, creatorTaxBps ?? 100)),
+          buybackEnabled: !!buybackEnabled,
+          expectedEconomics,
+          salt,
+        }
+
+        const parsedExemptions: `0x${string}`[] = []
+        if (extraExemptions.trim()) {
+          const list = extraExemptions.split(',').map((s) => s.trim())
+          for (const item of list) {
+            if (isAddress(item)) parsedExemptions.push(getAddress(item))
+          }
+        }
+
+        let txHash = ''
+        if (initialBuyNum > 0) {
+          toast('Confirm token launch & initial buy in your connected wallet...')
+          const quoteIn = parseEther(initialBuyEth)
+          const totalValue = exactLaunchFee + quoteIn
+
+          txHash = await walletClient.writeContract({
+            account,
+            address: LAUNCH_AND_BUY_ROUTER,
+            abi: LAUNCH_AND_BUY_ABI,
+            functionName: 'launchAndBuy',
+            args: [
+              tokenParams,
+              launchConfigId,
+              pairToken,
+              quoteIn,
+              0n,
+              userAddr,
+              parsedExemptions,
+            ],
+            value: totalValue,
+          })
+        } else {
+          toast('Confirm token launch in your connected wallet...')
+          if (parsedExemptions.length > 0) {
+            txHash = await walletClient.writeContract({
+              account,
+              address: PONS_V2_FACTORY,
+              abi: FACTORY_ABI,
+              functionName: 'launchToken',
+              args: [tokenParams, launchConfigId, pairToken, parsedExemptions],
+              value: exactLaunchFee,
+            })
+          } else {
+            txHash = await walletClient.writeContract({
+              account,
+              address: PONS_V2_FACTORY,
+              abi: FACTORY_ABI,
+              functionName: 'launchToken',
+              args: [tokenParams, launchConfigId, pairToken],
+              value: exactLaunchFee,
+            })
+          }
+        }
+
+        toast('Waiting for on-chain confirmation...')
+        const pubClient = createPublicClient({
+          chain: activeChain,
+          transport: http('https://robinhood-rpc.publicnode.com'),
+        })
+
+        const receipt = await pubClient.waitForTransactionReceipt({
+          hash: txHash as `0x${string}`,
+          retryCount: 30,
+          timeout: 90_000,
+        })
+
+        try {
+          const launchedEvents = parseEventLogs({
+            abi: FACTORY_ABI,
+            eventName: 'TokenLaunched',
+            logs: receipt.logs,
+          })
+          if (launchedEvents.length > 0 && launchedEvents[0].args.token) {
+            deployedTokenCa = getAddress(launchedEvents[0].args.token)
+          }
+        } catch { /* continue */ }
+
+        if (!deployedTokenCa) {
+          for (const log of receipt.logs) {
+            if (
+              log.topics &&
+              log.topics.length >= 2 &&
+              log.topics[0]?.toLowerCase() === '0x8d4aad4953d0ca700d468f3753aa14432d1b35b43ec6409f051fb6aa43a89607'.toLowerCase()
+            ) {
+              try {
+                const raw = log.topics[1]
+                if (raw && raw.length >= 26) {
+                  const parsed = getAddress('0x' + raw.slice(26))
+                  if (parsed !== zeroAddress) {
+                    deployedTokenCa = parsed
+                    break
+                  }
+                }
+              } catch { /* continue */ }
+            }
+          }
+        }
+      } else {
+        throw new Error(launchJson?.error || 'Failed to launch token')
       }
-
-      const deployedTokenCa = launchJson.tokenAddress
 
       if (deployedTokenCa) {
         try {
