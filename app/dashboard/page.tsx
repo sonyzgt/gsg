@@ -34,6 +34,7 @@ interface UserPointsData {
 
 interface LeaderboardItem {
   twitterHandle: string
+  walletAddress?: string
   totalPoints: number
   rank: number
   history: PointHistoryItem[]
@@ -486,19 +487,31 @@ function DashboardContent() {
                               )}
                             </td>
                             <td className="px-5 py-3">
-                              <a
-                                href={`https://x.com/${u.twitterHandle}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-white hover:text-[var(--theme-color)] transition-colors inline-flex items-center gap-1.5"
-                              >
-                                <span>@{u.twitterHandle}</span>
-                                {isYou && (
-                                  <span className="text-[10px] bg-[var(--theme-color)] text-black px-1.5 py-0.2 rounded font-black">
-                                    YOU
-                                  </span>
+                              <div className="flex flex-col">
+                                <a
+                                  href={`https://x.com/${u.twitterHandle}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-white hover:text-[var(--theme-color)] transition-colors inline-flex items-center gap-1.5 font-bold"
+                                >
+                                  <span>@{u.twitterHandle}</span>
+                                  {isYou && (
+                                    <span className="text-[10px] bg-[var(--theme-color)] text-black px-1.5 py-0.2 rounded font-black">
+                                      YOU
+                                    </span>
+                                  )}
+                                </a>
+                                {u.walletAddress && (
+                                  <a
+                                    href={`https://robinhoodchain.blockscout.com/address/${u.walletAddress}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[10px] text-zinc-500 hover:text-zinc-300 font-mono transition-colors"
+                                  >
+                                    {u.walletAddress.slice(0, 6)}...{u.walletAddress.slice(-4)}
+                                  </a>
                                 )}
-                              </a>
+                              </div>
                             </td>
                             <td className="px-5 py-3 text-zinc-400">
                               {u.history?.filter((h) => h.type === 'TOKEN_DEPLOY').length || 0} tokens

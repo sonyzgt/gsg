@@ -2,9 +2,46 @@
   {
     "twitterHandle": "ponscore",
     "walletAddress": "0x1234567890123456789012345678901234567890",
-    "totalPoints": 100,
-    "updatedAt": 1788114129791,
+    "totalPoints": 410,
+    "updatedAt": 1788114929921,
     "history": [
+      {
+        "id": "pt_1788114929921_t5ebs",
+        "type": "BONUS",
+        "points": 10,
+        "description": "Verified Twitter Bot User Bonus",
+        "timestamp": 1788114929921
+      },
+      {
+        "id": "pt_1788114929920_p1alz",
+        "type": "TOKEN_DEPLOY",
+        "points": 100,
+        "description": "Deployed token $TEST",
+        "tokenAddress": "0xD5bc8088220Eb421D2345F6B467a9a436F42777f",
+        "tokenSymbol": "TEST",
+        "txHash": "0x96e94b8a988ec7b0b5715dacb535586e9f29521f41fc1ee71d4142cf436a7b23",
+        "timestamp": 1788114929920
+      },
+      {
+        "id": "pt_1788114929918_8qiak",
+        "type": "TOKEN_DEPLOY",
+        "points": 100,
+        "description": "Deployed token $TEST",
+        "tokenAddress": "0x52a03Cd2FEE18216EE45C66D9Be8C0ee2Cd8399B",
+        "tokenSymbol": "TEST",
+        "txHash": "0x003631a0ede64eafee3811c4675fd42421fbb4553db196d3a57040c759df6d3b",
+        "timestamp": 1788114929918
+      },
+      {
+        "id": "pt_1788114929915_8ipoq",
+        "type": "TOKEN_DEPLOY",
+        "points": 100,
+        "description": "Deployed token $TEST",
+        "tokenAddress": "0xe80Dd8DC5cDEe190A96c56B06B138f02BDb6310F",
+        "tokenSymbol": "TEST",
+        "txHash": "0xfe6cdee0628eb2f42ab73cd175c2eedb35ce64355a6b47dc183872d8bbeef3b8",
+        "timestamp": 1788114929915
+      },
       {
         "id": "pt_1788114129791_u6lc5",
         "type": "TOKEN_DEPLOY",
@@ -13,6 +50,119 @@
         "tokenAddress": "0x869e8E65A35Eb22901975B33c759299001d4488E",
         "tokenSymbol": "TEST",
         "timestamp": 1788114129791
+      }
+    ],
+    "twitterUserId": "2093643002115727360"
+  },
+  {
+    "twitterHandle": "todyresearch",
+    "twitterUserId": "2002266665632100352",
+    "walletAddress": "0xC38843876A894d019fC738d1fD5581850De09f65",
+    "totalPoints": 10,
+    "updatedAt": 1788114929923,
+    "history": [
+      {
+        "id": "pt_1788114929923_0d3pg",
+        "type": "BONUS",
+        "points": 10,
+        "description": "Verified Twitter Bot User Bonus",
+        "timestamp": 1788114929923
+      }
+    ]
+  },
+  {
+    "twitterHandle": "abdulqoyum01",
+    "twitterUserId": "1350124874782674950",
+    "walletAddress": "0x129f3FB4cFd8C9908A21c6ce5882BD903ce61147",
+    "totalPoints": 10,
+    "updatedAt": 1788114929924,
+    "history": [
+      {
+        "id": "pt_1788114929924_7cvvz",
+        "type": "BONUS",
+        "points": 10,
+        "description": "Verified Twitter Bot User Bonus",
+        "timestamp": 1788114929924
+      }
+    ]
+  },
+  {
+    "twitterHandle": "nejithethird",
+    "twitterUserId": "2091288746343669760",
+    "walletAddress": "0x38109f9A9315d7E41236A9AeB1666C5C953d5D52",
+    "totalPoints": 10,
+    "updatedAt": 1788114929925,
+    "history": [
+      {
+        "id": "pt_1788114929925_gykx5",
+        "type": "BONUS",
+        "points": 10,
+        "description": "Verified Twitter Bot User Bonus",
+        "timestamp": 1788114929925
+      }
+    ]
+  },
+  {
+    "twitterHandle": "thebdn",
+    "twitterUserId": "827420548175114240",
+    "walletAddress": "0x7B102f56cB83add7F302D190152557Edb0143e7A",
+    "totalPoints": 10,
+    "updatedAt": 1788114929927,
+    "history": [
+      {
+        "id": "pt_1788114929927_9zi3a",
+        "type": "BONUS",
+        "points": 10,
+        "description": "Verified Twitter Bot User Bonus",
+        "timestamp": 1788114929927
+      }
+    ]
+  },
+  {
+    "twitterHandle": "marcsolym",
+    "twitterUserId": "tw_marcsolym",
+    "walletAddress": "0xa8A1087aAE6c07ee899D7E5c9E8B0bDeBbB85E86",
+    "totalPoints": 10,
+    "updatedAt": 1788114929928,
+    "history": [
+      {
+        "id": "pt_1788114929928_4gkxr",
+        "type": "BONUS",
+        "points": 10,
+        "description": "Verified Twitter Bot User Bonus",
+        "timestamp": 1788114929928
+      }
+    ]
+  },
+  {
+    "twitterHandle": "rahul",
+    "twitterUserId": "tw_rahul",
+    "walletAddress": "0x4226614775efb0Fa26590f3e71b777daFC6fe83a",
+    "totalPoints": 10,
+    "updatedAt": 1788114929930,
+    "history": [
+      {
+        "id": "pt_1788114929930_iqd9b",
+        "type": "BONUS",
+        "points": 10,
+        "description": "Verified Twitter Bot User Bonus",
+        "timestamp": 1788114929930
+      }
+    ]
+  },
+  {
+    "twitterHandle": "meadgod",
+    "twitterUserId": "tw_meadgod",
+    "walletAddress": "0x457905e9087Ec68F500ebE120443C89b622D62b1",
+    "totalPoints": 10,
+    "updatedAt": 1788114929931,
+    "history": [
+      {
+        "id": "pt_1788114929931_65ka0",
+        "type": "BONUS",
+        "points": 10,
+        "description": "Verified Twitter Bot User Bonus",
+        "timestamp": 1788114929931
       }
     ]
   }

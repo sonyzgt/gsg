@@ -20,8 +20,12 @@ export async function GET(req: NextRequest) {
     }
 
     const pointsData = await getUserPoints(user)
-    const leaderboard = await getPointsLeaderboard(100)
-    const rank = leaderboard.findIndex((r) => r.twitterHandle.toLowerCase() === user.replace('@', '').toLowerCase()) + 1
+    const cleanUser = user.replace('@', '').toLowerCase()
+    const rank = leaderboard.findIndex(
+      (r) =>
+        r.twitterHandle.toLowerCase() === cleanUser ||
+        (r.walletAddress && r.walletAddress.toLowerCase() === cleanUser)
+    ) + 1
 
     return NextResponse.json({
       success: true,
