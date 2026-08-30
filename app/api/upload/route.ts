@@ -98,12 +98,12 @@ async function pinToWeb3Storage(buffer: Buffer, mimeType: string, fileName: stri
   return null
 }
 
+import { detectSafeImageMimeType } from '@/lib/image-validator'
+
 export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get('content-type') || ''
     let buffer: Buffer
-    let ext = 'png'
-    let mimeType = 'image/png'
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData()
@@ -112,11 +112,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
       }
       buffer = Buffer.from(await file.arrayBuffer())
-      mimeType = file.type || 'image/png'
-      if (mimeType.includes('webp')) ext = 'webp'
-      else if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = 'jpg'
-      else if (mimeType.includes('svg')) ext = 'svg'
-      else if (mimeType.includes('gif')) ext = 'gif'
     } else {
       const body = await req.json()
       const dataUrl = body.image as string
@@ -127,12 +122,35 @@ export async function POST(req: NextRequest) {
       if (!matches || matches.length < 3) {
         return NextResponse.json({ error: 'Invalid base64' }, { status: 400 })
       }
-      ext = matches[1] === 'jpeg' ? 'jpg' : matches[1]
-      mimeType = `image/${matches[1] === 'jpg' ? 'jpeg' : matches[1]}`
       buffer = Buffer.from(matches[2], 'base64')
     }
 
-    // 1. Save local backup
+    // 1. File size limit (5MB)
+    if (buffer.length > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: 'File size exceeds 5MB limit' }, { status: 400 })
+    }
+
+    // 2. Strict Magic Byte Verification (Prevent HTML/JS/SVG XSS Uploads)
+    const mimeType = detectSafeImageMimeType(buffer)
+    if (!mimeType) {
+      return NextResponse.json(
+        { error: 'Invalid or unsupported image file. Only valid PNG, JPEG, WEBP, GIF, and sanitized SVG images are permitted.' },
+        { status: 400 }
+      )
+    }
+
+    const ext =
+      mimeType === 'image/jpeg'
+        ? 'jpg'
+        : mimeType === 'image/png'
+        ? 'png'
+        : mimeType === 'image/webp'
+        ? 'webp'
+        : mimeType === 'image/gif'
+        ? 'gif'
+        : 'svg'
+
+    // 3. Save local backup
     const hash = crypto.createHash('sha256').update(buffer).digest('hex').slice(0, 16)
     const fileName = `${hash}.${ext}`
     const uploadDir = path.join(process.cwd(), 'public', 'uploads')

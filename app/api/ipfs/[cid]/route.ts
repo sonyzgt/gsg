@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readFile, readdir } from 'fs/promises'
 import path from 'path'
+import { detectSafeImageMimeType, SAFE_IMAGE_HEADERS } from '@/lib/image-validator'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +11,8 @@ export async function GET(
 ) {
   try {
     const { cid } = await params
-    if (!cid || cid.length < 10) {
+    // Strict alphanumeric/base58/base32 CID validation
+    if (!cid || cid.length < 10 || !/^[a-zA-Z0-9_-]+$/.test(cid)) {
       return new NextResponse('Invalid CID', { status: 400 })
     }
 
@@ -23,11 +25,17 @@ export async function GET(
       if (matchingFile) {
         const filePath = path.join(uploadDir, matchingFile)
         const fileBuffer = await readFile(filePath)
-        const ext = path.extname(matchingFile).replace('.', '')
+        const safeMime = detectSafeImageMimeType(fileBuffer)
+
+        if (!safeMime) {
+          return new NextResponse('Unsupported or invalid image file', { status: 415 })
+        }
+
         return new NextResponse(fileBuffer, {
           headers: {
-            'Content-Type': ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+            'Content-Type': safeMime,
             'Cache-Control': 'public, max-age=31536000, immutable',
+            ...SAFE_IMAGE_HEADERS,
           },
         })
       }
@@ -50,12 +58,21 @@ export async function GET(
         clearTimeout(timeoutId)
 
         if (res.ok) {
-          const contentType = res.headers.get('content-type') || 'image/png'
           const arrayBuffer = await res.arrayBuffer()
+          const buffer = Buffer.from(arrayBuffer)
+
+          // STRICT MAGIC BYTE VALIDATION: Only allow genuine image files (PNG, JPEG, WEBP, GIF, safe SVG)
+          const safeMime = detectSafeImageMimeType(buffer)
+          if (!safeMime) {
+            console.warn(`[Security] Blocked non-image IPFS content for CID ${cid}`)
+            return new NextResponse('Invalid or non-image content blocked for security reasons', { status: 415 })
+          }
+
           return new NextResponse(arrayBuffer, {
             headers: {
-              'Content-Type': contentType,
+              'Content-Type': safeMime,
               'Cache-Control': 'public, max-age=31536000, immutable',
+              ...SAFE_IMAGE_HEADERS,
             },
           })
         }
