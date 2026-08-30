@@ -924,10 +924,10 @@ export async function pollMentions() {
     let url = ''
 
     if (botId) {
-      url = `https://api.twitter.com/2/users/${botId}/mentions?max_results=10&expansions=attachments.media_keys,author_id&media.fields=url,preview_image_url,type&user.fields=username&tweet.fields=created_at,attachments,text`
+      url = `https://api.twitter.com/2/users/${botId}/mentions?max_results=10&expansions=attachments.media_keys,author_id,in_reply_to_user_id,referenced_tweets.id,referenced_tweets.id.author_id&media.fields=url,preview_image_url,type&user.fields=username&tweet.fields=created_at,attachments,text,in_reply_to_user_id,referenced_tweets`
     } else {
       const query = encodeURIComponent(`@${botHandle} -is:retweet`)
-      url = `https://api.twitter.com/2/tweets/search/recent?query=${query}&max_results=10&expansions=attachments.media_keys,author_id&media.fields=url,preview_image_url,type&user.fields=username&tweet.fields=created_at,attachments,text`
+      url = `https://api.twitter.com/2/tweets/search/recent?query=${query}&max_results=10&expansions=attachments.media_keys,author_id,in_reply_to_user_id,referenced_tweets.id,referenced_tweets.id.author_id&media.fields=url,preview_image_url,type&user.fields=username&tweet.fields=created_at,attachments,text,in_reply_to_user_id,referenced_tweets`
     }
 
     if (state.lastSeenId) {
@@ -938,8 +938,8 @@ export async function pollMentions() {
     console.log(`Endpoint:      ${url.split('?')[0]}`)
     console.log(`Bot User ID:   ${botId}`)
     console.log(`since_id:      ${state.lastSeenId || 'none'}`)
-    console.log(`Expansions:    attachments.media_keys,author_id`)
-    console.log(`Tweet Fields:  created_at,attachments,text`)
+    console.log(`Expansions:    attachments.media_keys,author_id,in_reply_to_user_id,referenced_tweets.id.author_id`)
+    console.log(`Tweet Fields:  created_at,attachments,text,in_reply_to_user_id,referenced_tweets`)
     console.log(`Media Fields:  url,preview_image_url,type`)
 
     const headers: Record<string, string> = {}
@@ -985,6 +985,8 @@ export async function pollMentions() {
       console.log(`  Created At:  ${t.created_at}`)
       console.log(`  Author:      @${author} (${t.author_id})`)
       console.log(`  Text:        "${t.text}"`)
+      console.log(`  In Reply To: ${t.in_reply_to_user_id || 'none'}`)
+      console.log(`  Ref Tweets:  ${JSON.stringify(t.referenced_tweets || 'none')}`)
       console.log(`  Attachments: ${JSON.stringify(t.attachments || 'none')}`)
     })
 
@@ -1049,8 +1051,57 @@ export async function pollMentions() {
 
       console.log(`[STAGE 3 — SELECTED TWEET]`)
       console.log(`Tweet ID: ${tweet.id}`)
+
+      // Multi-layer resolution for parent tweet / in_reply_to handle
+      let inReplyToHandle: string | undefined = undefined
       const inReplyToUserId = tweet.in_reply_to_user_id
-      const inReplyToHandle = inReplyToUserId ? usersMap.get(inReplyToUserId) : undefined
+      if (inReplyToUserId && usersMap.has(inReplyToUserId)) {
+        inReplyToHandle = usersMap.get(inReplyToUserId)
+      }
+
+      // Check referenced_tweets (replied_to)
+      if (!inReplyToHandle && tweet.referenced_tweets?.length) {
+        const refTweet = tweet.referenced_tweets.find((r: any) => r.type === 'replied_to')
+        if (refTweet?.id) {
+          const parentTweet = data.includes?.tweets?.find((t: any) => t.id === refTweet.id)
+          if (parentTweet?.author_id && usersMap.has(parentTweet.author_id)) {
+            inReplyToHandle = usersMap.get(parentTweet.author_id)
+          }
+        }
+      }
+
+      // Fallback 1: Lookup user directly if ID known
+      if (!inReplyToHandle && inReplyToUserId) {
+        try {
+          const uRes = await fetch(`https://api.twitter.com/2/users/${inReplyToUserId}`, { headers })
+          if (uRes.ok) {
+            const uData = await uRes.json()
+            if (uData.data?.username) {
+              inReplyToHandle = uData.data.username
+              usersMap.set(inReplyToUserId, inReplyToHandle)
+            }
+          }
+        } catch { /* ignore */ }
+      }
+
+      // Fallback 2: Lookup parent tweet directly if referenced_tweets exists
+      if (!inReplyToHandle && tweet.referenced_tweets?.length) {
+        const refTweet = tweet.referenced_tweets.find((r: any) => r.type === 'replied_to')
+        if (refTweet?.id) {
+          try {
+            const ptRes = await fetch(`https://api.twitter.com/2/tweets/${refTweet.id}?expansions=author_id&user.fields=username`, { headers })
+            if (ptRes.ok) {
+              const ptData = await ptRes.json()
+              const parentAuthor = ptData.includes?.users?.[0]?.username
+              if (parentAuthor) {
+                inReplyToHandle = parentAuthor
+              }
+            }
+          } catch { /* ignore */ }
+        }
+      }
+
+      console.log(`In Reply To Handle: @${inReplyToHandle || 'none'}\n`)
 
       const result = await processTweetLaunch({
         tweetId: tweet.id,
