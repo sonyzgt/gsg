@@ -1,0 +1,19 @@
+[
+  {
+    "twitterHandle": "ponscore",
+    "walletAddress": "0x1234567890123456789012345678901234567890",
+    "totalPoints": 100,
+    "updatedAt": 1788114129791,
+    "history": [
+      {
+        "id": "pt_1788114129791_u6lc5",
+        "type": "TOKEN_DEPLOY",
+        "points": 100,
+        "description": "Deployed token $TEST",
+        "tokenAddress": "0x869e8E65A35Eb22901975B33c759299001d4488E",
+        "tokenSymbol": "TEST",
+        "timestamp": 1788114129791
+      }
+    ]
+  }
+]
