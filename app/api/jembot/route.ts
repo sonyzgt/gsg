@@ -144,6 +144,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     const clean = getAddress(address)
+    let remainingCount = 0
     try {
       const raw = await readFile(REGISTRY_FILE, 'utf-8')
       const parsed = JSON.parse(raw)
@@ -157,6 +158,7 @@ export async function DELETE(req: NextRequest) {
             return false
           }
         })
+        remainingCount = updated.length
         await writeFile(REGISTRY_FILE, JSON.stringify(updated, null, 2))
       }
     } catch { /* ignore */ }
@@ -180,7 +182,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({
       success: true,
       deleted: clean,
-      remainingCount: updated.length,
+      remainingCount,
     })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Failed to delete token'
