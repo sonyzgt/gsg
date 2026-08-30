@@ -248,14 +248,24 @@ export default function TokenDetailPage({ params }: PageProps) {
             {/* Social & Explorer Buttons */}
             <div className="flex items-center gap-2 flex-wrap">
               {token.socials?.twitter && (
-                <a
-                  href={token.socials.twitter.startsWith('http') ? token.socials.twitter : `https://x.com/${token.socials.twitter.replace('@', '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-2.5 py-1 rounded bg-[#181b20] hover:bg-white text-zinc-300 hover:text-black border border-zinc-700 hover:border-white text-xs font-black uppercase transition-all shadow-[2px_2px_0px_0px_#000000]"
-                >
-                  TWITTER
-                </a>
+                <>
+                  <a
+                    href={token.socials.twitter.startsWith('http') ? token.socials.twitter : `https://x.com/${token.socials.twitter.replace('@', '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1 rounded bg-[#181b20] hover:bg-white text-zinc-300 hover:text-black border border-zinc-700 hover:border-white text-xs font-black uppercase transition-all shadow-[2px_2px_0px_0px_#000000]"
+                  >
+                    TWITTER
+                  </a>
+                  <Link
+                    href={`/dashboard?user=${encodeURIComponent(token.socials.twitter.replace('@', ''))}`}
+                    title="View Creator Points & Rank"
+                    className="px-2.5 py-1 rounded bg-[var(--theme-color)] text-black border border-black text-xs font-black uppercase transition-all shadow-[2px_2px_0px_0px_#ffffff] flex items-center gap-1 hover:brightness-110"
+                  >
+                    <SparkleIcon size={12} />
+                    <span>CREATOR POINTS</span>
+                  </Link>
+                </>
               )}
               {token.socials?.telegram && (
                 <a
