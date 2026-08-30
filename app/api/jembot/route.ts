@@ -22,8 +22,15 @@ async function getStoredTokens(): Promise<string[]> {
   try {
     const raw = await readFile(REGISTRY_FILE, 'utf-8')
     const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed)) {
-      return parsed
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const addresses: string[] = []
+      for (const item of parsed) {
+        const addr = typeof item === 'string' ? item : item?.tokenAddress || item?.address
+        if (addr && isAddress(addr)) {
+          addresses.push(getAddress(addr))
+        }
+      }
+      return Array.from(new Set(addresses))
     }
   } catch {
     try {
@@ -34,7 +41,7 @@ async function getStoredTokens(): Promise<string[]> {
   return []
 }
 
-async function saveStoredTokens(addresses: string[]) {
+async function saveStoredTokens(addresses: (string | object)[]) {
   try {
     await mkdir(path.dirname(REGISTRY_FILE), { recursive: true })
     await writeFile(REGISTRY_FILE, JSON.stringify(addresses, null, 2))
@@ -66,23 +73,25 @@ export async function GET(req: NextRequest) {
     // Detailed token list
     const details = await Promise.all(
       stored.map(async (addr) => {
-        const found = cachedList.find((c) => c.tokenAddress.toLowerCase() === addr.toLowerCase())
+        const found = cachedList.find((c) => c?.tokenAddress && c.tokenAddress.toLowerCase() === addr.toLowerCase())
         if (found) return found
         try {
           const info = await getPonsTokenInfo(addr)
-          return info
-        } catch {
-          return {
-            tokenAddress: addr,
-            name: 'Unknown Token',
-            symbol: '???',
-            logo: '',
-            priceUsd: 0,
-            priceNative: 0,
-            progress: 0,
-            graduated: false,
-          } as unknown as PonsV2TokenInfo
-        }
+          if (info) return info
+        } catch { /* continue */ }
+
+        return {
+          tokenAddress: addr,
+          name: 'Token',
+          symbol: 'TOKEN',
+          logo: '/logo.svg',
+          priceUsd: 0,
+          priceNative: 0,
+          progress: 0,
+          graduated: false,
+          phase: 0,
+          route: 'BONDING_CURVE',
+        } as unknown as PonsV2TokenInfo
       })
     )
 
@@ -135,10 +144,22 @@ export async function DELETE(req: NextRequest) {
     }
 
     const clean = getAddress(address)
-    const stored = await getStoredTokens()
-    const updated = stored.filter((s) => s.toLowerCase() !== clean.toLowerCase())
-
-    await saveStoredTokens(updated)
+    try {
+      const raw = await readFile(REGISTRY_FILE, 'utf-8')
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        const updated = parsed.filter((item) => {
+          const addr = typeof item === 'string' ? item : item?.tokenAddress || item?.address
+          if (!addr) return false
+          try {
+            return getAddress(addr).toLowerCase() !== clean.toLowerCase()
+          } catch {
+            return false
+          }
+        })
+        await writeFile(REGISTRY_FILE, JSON.stringify(updated, null, 2))
+      }
+    } catch { /* ignore */ }
 
     // Update Cache
     if (g.__tokensCache) {
