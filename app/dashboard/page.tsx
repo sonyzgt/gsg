@@ -40,6 +40,14 @@ interface LeaderboardItem {
   history: PointHistoryItem[]
 }
 
+interface RewardPotData {
+  potAddress: string | null
+  balanceEth: number
+  balanceEthFormatted: string
+  balanceUsd: number
+  isConfigured: boolean
+}
+
 function DashboardContent() {
   const searchParams = useSearchParams()
   const urlUserParam = searchParams.get('user') || ''
@@ -52,10 +60,12 @@ function DashboardContent() {
   const [loading, setLoading] = useState(true)
   const [userPoints, setUserPoints] = useState<UserPointsData | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>([])
+  const [potData, setPotData] = useState<RewardPotData | null>(null)
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'my_points' | 'search'>('leaderboard')
   const [searchQuery, setSearchQuery] = useState(urlUserParam)
   const [searchedUserPoints, setSearchedUserPoints] = useState<UserPointsData | null>(null)
   const [searching, setSearching] = useState(false)
+  const [copiedPot, setCopiedPot] = useState(false)
 
   const fetchPointsData = useCallback(async () => {
     try {
@@ -70,12 +80,18 @@ function DashboardContent() {
         if (userJson.success && userJson.data) {
           setUserPoints(userJson.data)
         }
+        if (userJson.pot) {
+          setPotData(userJson.pot)
+        }
       }
 
       if (lbRes.ok) {
         const lbJson = await lbRes.json()
         if (lbJson.success && lbJson.leaderboard) {
           setLeaderboard(lbJson.leaderboard)
+        }
+        if (lbJson.pot) {
+          setPotData(lbJson.pot)
         }
       }
     } catch (err) {
@@ -126,6 +142,17 @@ function DashboardContent() {
   const totalSystemPoints = leaderboard.reduce((acc, curr) => acc + (curr.totalPoints || 0), 0)
   const totalDeployers = leaderboard.length
 
+  // Estimated share of reward pot
+  const userShareRatio = totalSystemPoints > 0 ? totalPts / totalSystemPoints : 0
+  const userEstimatedEthReward = (potData?.balanceEth || 0) * userShareRatio
+  const userEstimatedUsdReward = (potData?.balanceUsd || 0) * userShareRatio
+
+  function copyPotAddress(addr: string) {
+    navigator.clipboard.writeText(addr)
+    setCopiedPot(true)
+    setTimeout(() => setCopiedPot(false), 2000)
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-black text-zinc-100 font-mono">
       <Navbar />
@@ -143,14 +170,14 @@ function DashboardContent() {
                   <span className="text-xs font-black uppercase px-2.5 py-0.5 bg-[var(--theme-color)] text-black border border-black">
                     PUBLIC POINTS & LEADERBOARD
                   </span>
-                  <span className="text-xs text-zinc-400 font-mono">OPEN FOR ALL USERS</span>
+                  <span className="text-xs text-zinc-400 font-mono">SEASON 1 REWARD POOL</span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight flex items-center gap-2">
                   <span>PONSCORE POINTS PROGRAM</span>
                   <SparkleIcon size={24} className="text-[var(--theme-color)]" />
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-400 max-w-xl font-sans">
-                  The PONSCORE points system is 100% public. Anyone can track top Twitter creators, inspect deployment points, and check any Twitter handle&apos;s points rank on Robinhood Chain.
+                  Deploy tokens and execute Buy/Sell trades &gt;$100 to earn PONS Points. Every point increases your share of the on-chain Season 1 Reward Prize Pot on Robinhood Chain.
                 </p>
               </div>
 
@@ -169,6 +196,83 @@ function DashboardContent() {
                 >
                   TRADE &gt;$100 (+10 PTS)
                 </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Season 1 Reward Prize Pot Banner */}
+          <div
+            style={{ boxShadow: '4px 4px 0px 0px #ffffff' }}
+            className="bg-gradient-to-r from-[#12161f] via-[#10141a] to-[#151a24] border-2 border-white rounded-xl p-6 relative overflow-hidden"
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+              {/* Left Column: Live Pot Balance */}
+              <div className="flex flex-col gap-2 lg:col-span-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs font-black uppercase text-emerald-400">
+                    LIVE ON-CHAIN REWARD POT // ROBINHOOD CHAIN
+                  </span>
+                </div>
+
+                <div className="flex items-baseline gap-3 flex-wrap">
+                  <span className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight">
+                    {potData?.balanceEthFormatted || '0.0000'} ETH
+                  </span>
+                  <span className="text-sm sm:text-base font-bold text-zinc-400">
+                    (~${(potData?.balanceUsd || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} USD)
+                  </span>
+                </div>
+
+                {potData?.potAddress ? (
+                  <div className="flex items-center gap-2 text-xs text-zinc-400 mt-1 flex-wrap font-mono">
+                    <span>POT WALLET:</span>
+                    <code className="text-white font-bold bg-black/60 border border-zinc-700 px-2 py-0.5 rounded">
+                      {potData.potAddress.slice(0, 6)}...{potData.potAddress.slice(-4)}
+                    </code>
+                    <button
+                      onClick={() => copyPotAddress(potData.potAddress!)}
+                      className="text-zinc-400 hover:text-white cursor-pointer px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-bold uppercase transition-colors"
+                    >
+                      {copiedPot ? 'COPIED!' : 'COPY'}
+                    </button>
+                    <a
+                      href={`https://robinhoodchain.blockscout.com/address/${potData.potAddress}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[var(--theme-color)] hover:underline text-[11px] font-bold flex items-center gap-1"
+                    >
+                      <span>BLOCKSCOUT</span>
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  </div>
+                ) : (
+                  <span className="text-xs text-zinc-500 font-sans mt-1">
+                    Add <code className="text-zinc-400">REWARD_POT_PRIVATE_KEY</code> in .env to display live on-chain pot wallet.
+                  </span>
+                )}
+              </div>
+
+              {/* Right Column: User Estimated Share */}
+              <div className="bg-black/50 border-2 border-zinc-800 rounded-lg p-4 flex flex-col gap-1.5 shadow-inner">
+                <span className="text-[10px] font-black text-zinc-400 uppercase">
+                  // YOUR_ESTIMATED_REWARD_SHARE
+                </span>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-2xl font-black text-[var(--theme-color)]">
+                    {(userShareRatio * 100).toFixed(1)}%
+                  </span>
+                  <span className="text-xs font-black text-white">
+                    ~{userEstimatedEthReward.toFixed(4)} ETH
+                  </span>
+                </div>
+                <span className="text-[11px] text-zinc-500 font-sans">
+                  {myTwitterUsername
+                    ? `Based on ${totalPts} PTS out of ${totalSystemPoints} total points.`
+                    : 'Log in with Twitter to calculate your reward share.'}
+                </span>
               </div>
             </div>
           </div>
