@@ -12,7 +12,7 @@ import {
   formatEther,
   isAddress,
 } from 'viem'
-import { usePrivy, useLoginWithOAuth } from '@privy-io/react-auth'
+import { usePrivy, useLoginWithOAuth, useWallets } from '@privy-io/react-auth'
 import { useWallet } from '@/hooks/useWallet'
 import { activeChain } from '@/lib/chains'
 import Modal from '@/components/ui/Modal'
@@ -34,18 +34,24 @@ interface CreateTokenModalProps {
   open: boolean
   onClose: () => void
   onTokenCreated?: (tokenAddress?: string) => void
+  initialSymbol?: string
+  initialName?: string
 }
 
 export default function CreateTokenModal({
   open,
   onClose,
   onTokenCreated,
+  initialSymbol,
+  initialName,
 }: CreateTokenModalProps) {
   const { user, authenticated, login } = usePrivy()
+  const { wallets } = useWallets()
   const { address, balance, embeddedWallet, refetchBalance } = useWallet()
   const { theme } = useTheme()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const externalWallet = wallets?.find((w) => w.walletClientType !== 'privy')
   const isConnected = !!address || authenticated
 
   // ── Form State ─────────────────────────────────────────────────────────────
@@ -89,9 +95,11 @@ export default function CreateTokenModal({
 
   useEffect(() => {
     if (open) {
+      if (initialSymbol) setSymbol(initialSymbol.replace('$', '').toUpperCase())
+      if (initialName) setName(initialName)
       fetchFee()
     }
-  }, [open, fetchFee])
+  }, [open, initialSymbol, initialName, fetchFee])
 
   // Upload image to server and get short URL (< 200 chars for smart contract)
   async function uploadImageToServer(dataUrl: string): Promise<string> {
@@ -201,12 +209,101 @@ export default function CreateTokenModal({
       return
     }
 
-    let provider: any
-    if (embeddedWallet) {
+    // Ensure logo is a full public HTTPS URL accessible by GMGN, DexScreener, Pons
+    const FALLBACK_LOGO = 'https://ponscore.fun/sparkle-logo.svg'
+    let finalLogo = logo.trim()
+
+    // If still base64, upload now
+    if (finalLogo.startsWith('data:')) {
       try {
-        await embeddedWallet.switchChain(activeChain.id)
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: finalLogo }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          finalLogo = data.publicUrl || data.relativeUrl || ''
+        }
+      } catch {
+        finalLogo = ''
+      }
+    }
+
+    // Convert relative path to full HTTPS URL
+    if (finalLogo.startsWith('/uploads/') || finalLogo.startsWith('/')) {
+      finalLogo = `https://ponscore.fun${finalLogo}`
+    }
+
+    // Convert ipfs:// to gateway URL
+    if (finalLogo.startsWith('ipfs://')) {
+      finalLogo = `https://ipfs.io/ipfs/${finalLogo.replace('ipfs://', '')}`
+    }
+
+    // Final validation
+    if (!finalLogo || finalLogo.length > 200) {
+      finalLogo = FALLBACK_LOGO
+    }
+
+    const socialsData = {
+      twitter: twitter.trim().slice(0, 100),
+      telegram: telegram.trim().slice(0, 100),
+      discord: discord.trim().slice(0, 100),
+      website: website.trim().slice(0, 100),
+      farcaster: farcaster.trim().slice(0, 100),
+    }
+
+    // ── ROUTE 1: PRIVY SERVER WALLET (Social / Twitter / Google Login) ──
+    if (!externalWallet) {
+      setDeploying(true)
+      toast('Deploying token via Privy Server Wallet...')
+      try {
+        const srvRes = await fetch('/api/launchpad/launch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            address,
+            twitterHandle: user?.twitter?.username,
+            name: name.trim().slice(0, 32),
+            symbol: symbol.trim().toUpperCase().slice(0, 10),
+            logo: finalLogo,
+            description: description.trim().slice(0, 280) || `${name} fair launched on Pons v2`,
+            socials: socialsData,
+            creatorTaxBps: Math.min(1000, Math.max(0, creatorTaxBps ?? 100)),
+            buybackEnabled: !!buybackEnabled,
+            initialBuyEth: initialBuyEth || '0',
+            extraExemptions,
+          }),
+        })
+
+        const srvJson = await srvRes.json().catch(() => ({}))
+
+        if (!srvRes.ok || !srvJson?.success) {
+          throw new Error(srvJson?.error || 'Token deployment failed on server wallet')
+        }
+
+        toast.success(`Token $${symbol.toUpperCase()} successfully deployed on-chain!`)
+        if (onTokenCreated) onTokenCreated(srvJson.tokenAddress)
+        await refetchBalance()
+        onClose()
+        return
+      } catch (err: unknown) {
+        console.error('Server Launch error:', err)
+        const msg = err instanceof Error ? err.message : 'Launch failed'
+        toast.error(msg)
+        return
+      } finally {
+        setDeploying(false)
+      }
+    }
+
+    // ── ROUTE 2: CONNECTED EXTERNAL WALLET (MetaMask, Rabby, WalletConnect) ──
+    let provider: any
+    if (externalWallet) {
+      try {
+        await externalWallet.switchChain(activeChain.id)
       } catch { /* continue */ }
-      provider = await embeddedWallet.getEthereumProvider()
+      provider = await externalWallet.getEthereumProvider()
     } else if (typeof window !== 'undefined' && (window as any).ethereum) {
       provider = (window as any).ethereum
     } else {
@@ -233,52 +330,8 @@ export default function CreateTokenModal({
       toast('Fetching launch economics...')
       const expectedEconomics = await getPreviewLaunchEconomics(launchConfigId, pairToken)
 
-      // Fetch exact launch fee â€” MUST be exact or LaunchFeeNotPaid reverts
+      // Fetch exact launch fee
       const exactLaunchFee = await getLaunchFee()
-
-      // Ensure logo is a full public HTTPS URL accessible by GMGN, DexScreener, Pons
-      const FALLBACK_LOGO = 'https://ponscore.fun/sparkle-logo.svg'
-      let finalLogo = logo.trim()
-
-      // If still base64, upload now
-      if (finalLogo.startsWith('data:')) {
-        try {
-          const res = await fetch('/api/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: finalLogo }),
-          })
-          if (res.ok) {
-            const data = await res.json()
-            finalLogo = data.publicUrl || data.relativeUrl || ''
-          }
-        } catch {
-          finalLogo = ''
-        }
-      }
-
-      // Convert relative path to full HTTPS URL
-      if (finalLogo.startsWith('/uploads/') || finalLogo.startsWith('/')) {
-        finalLogo = `https://ponscore.fun${finalLogo}`
-      }
-
-      // Convert ipfs:// to gateway URL
-      if (finalLogo.startsWith('ipfs://')) {
-        finalLogo = `https://ipfs.io/ipfs/${finalLogo.replace('ipfs://', '')}`
-      }
-
-      // Final validation
-      if (!finalLogo || finalLogo.length > 200) {
-        finalLogo = FALLBACK_LOGO
-      }
-
-      const socialsData = {
-        twitter: twitter.trim().slice(0, 100),
-        telegram: telegram.trim().slice(0, 100),
-        discord: discord.trim().slice(0, 100),
-        website: website.trim().slice(0, 100),
-        farcaster: farcaster.trim().slice(0, 100),
-      }
 
       const tokenParams = {
         name: name.trim().slice(0, 32),

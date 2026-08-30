@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
     const balance = await publicClient.getBalance({ address: userAddr })
     const rawGasPrice = await publicClient.getGasPrice()
     const gasPrice = (rawGasPrice * 125n) / 100n
-    const estimatedGasCost = gasPrice * 4500000n // ~4.5M gas for deployment + buy
+    const estimatedGasCost = gasPrice * 1200000n // ~1.2M gas for deployment + buy
 
     if (balance < totalRequiredValue + estimatedGasCost) {
       return NextResponse.json(
@@ -182,7 +182,6 @@ export async function POST(req: NextRequest) {
     let targetTo: `0x${string}`
     let calldata: `0x${string}`
     let txValue: bigint
-    const gasLimitHex = '0x4C4B40' as `0x${string}` // 5,000,000 gas
 
     if (initialBuyNum > 0) {
       targetTo = LAUNCH_AND_BUY_ROUTER
@@ -220,6 +219,19 @@ export async function POST(req: NextRequest) {
 
     const nonce = await publicClient.getTransactionCount({ address: userAddr })
 
+    let gasLimit: bigint
+    try {
+      const estGas = await publicClient.estimateGas({
+        account: userAddr,
+        to: targetTo,
+        value: txValue,
+        data: calldata,
+      })
+      gasLimit = (estGas * 125n) / 100n
+    } catch {
+      gasLimit = 850000n
+    }
+
     const signRes = await privy.walletApi.ethereum.signTransaction({
       walletId: senderWalletId,
       transaction: {
@@ -228,7 +240,7 @@ export async function POST(req: NextRequest) {
         data: calldata,
         chainId: 4663,
         nonce,
-        gasLimit: gasLimitHex,
+        gasLimit: `0x${gasLimit.toString(16)}`,
         gasPrice: `0x${gasPrice.toString(16)}`,
         type: 0,
       },

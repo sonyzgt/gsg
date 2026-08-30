@@ -156,7 +156,7 @@ function buildV4SwapCalldata({
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { twitterHandle, address, tokenAddress, isBuy, amount, slippage = 1.0 } = body
+    const { twitterHandle, address, tokenAddress, isBuy, amount, slippage = 1.0, percentage } = body
 
     if ((!twitterHandle && !address) || !tokenAddress || !isAddress(tokenAddress) || !amount) {
       return NextResponse.json({ error: 'Missing required swap parameters' }, { status: 400 })
@@ -267,13 +267,26 @@ export async function POST(req: NextRequest) {
           message: `Successfully bought $${tokenInfo.symbol} on Uniswap v4 for ${amount} ETH!`,
         })
       } else {
-        const tokensIn = parseUnits(String(amount), 18)
         const tokenBal = await publicClient.readContract({
           address: tokenCa,
           abi: erc20Abi,
           functionName: 'balanceOf',
           args: [senderAddress],
         })
+
+        if (tokenBal <= 0n) {
+          return NextResponse.json({
+            error: `Insufficient $${tokenInfo.symbol} balance (0) to sell.`,
+          }, { status: 400 })
+        }
+
+        const pct = percentage || (String(amount).endsWith('%') ? parseFloat(String(amount)) : undefined)
+        const isAllAmount = String(amount).toLowerCase() === 'all' || String(amount).toLowerCase() === 'max' || pct === 100
+        const tokensIn = isAllAmount
+          ? tokenBal
+          : pct && pct > 0
+          ? (tokenBal * BigInt(Math.floor(pct))) / 100n
+          : parseUnits(String(amount), 18)
 
         if (tokenBal < tokensIn) {
           return NextResponse.json({
@@ -465,13 +478,26 @@ export async function POST(req: NextRequest) {
         })
       } else {
         // ── SELL ACTION ──
-        const tokensIn = parseUnits(String(amount), 18)
         const tokenBal = await publicClient.readContract({
           address: tokenCa,
           abi: erc20Abi,
           functionName: 'balanceOf',
           args: [senderAddress],
         })
+
+        if (tokenBal <= 0n) {
+          return NextResponse.json({
+            error: `Insufficient $${tokenInfo.symbol} balance (0) to sell.`,
+          }, { status: 400 })
+        }
+
+        const pct = percentage || (String(amount).endsWith('%') ? parseFloat(String(amount)) : undefined)
+        const isAllAmount = String(amount).toLowerCase() === 'all' || String(amount).toLowerCase() === 'max' || pct === 100
+        const tokensIn = isAllAmount
+          ? tokenBal
+          : pct && pct > 0
+          ? (tokenBal * BigInt(Math.floor(pct))) / 100n
+          : parseUnits(String(amount), 18)
 
         if (tokenBal < tokensIn) {
           return NextResponse.json({

@@ -16,6 +16,7 @@ const wagmiConfig = createConfig({
 })
 
 import { ThemeProvider } from '@/context/ThemeContext'
+import AiFloatingButton from '@/components/chat/AiFloatingButton'
 
 export default function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient())
@@ -68,6 +69,7 @@ export default function Providers({ children }: { children: ReactNode }) {
         <WagmiProvider config={wagmiConfig}>
           <ThemeProvider>
             {children}
+            <AiFloatingButton />
             <Toaster
               position="top-center"
               toastOptions={{

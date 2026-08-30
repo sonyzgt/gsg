@@ -75,5 +75,27 @@
     "walletAddress": "0x95aecaFB46716153C0586DA35ED0d5b177399CD4",
     "walletId": "man64tcsp2n1swck5zq2305t",
     "createdAt": 1788052395949
+  },
+  {
+    "twitterId": "tw_rahul",
+    "twitterHandle": "rahul",
+    "name": "rahul",
+    "ponscoreUserId": "user_tw_rahul",
+    "privyUserId": "did:privy:qwhvvycjf2vzhfr8rxxciicb",
+    "privyWalletAddress": "0x4226614775efb0Fa26590f3e71b777daFC6fe83a",
+    "walletAddress": "0x4226614775efb0Fa26590f3e71b777daFC6fe83a",
+    "walletId": "qwhvvycjf2vzhfr8rxxciicb",
+    "createdAt": 1788091382618
+  },
+  {
+    "twitterId": "tw_meadgod",
+    "twitterHandle": "meadgod",
+    "name": "meadgod",
+    "ponscoreUserId": "user_tw_meadgod",
+    "privyUserId": "did:privy:w8e73l5cxzosozsrtboe4vph",
+    "privyWalletAddress": "0x457905e9087Ec68F500ebE120443C89b622D62b1",
+    "walletAddress": "0x457905e9087Ec68F500ebE120443C89b622D62b1",
+    "walletId": "w8e73l5cxzosozsrtboe4vph",
+    "createdAt": 1788091407345
   }
 ]

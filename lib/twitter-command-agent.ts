@@ -1,7 +1,10 @@
 export interface AICommandParseResult {
-  intent: 'launch_token' | 'wallet_query' | 'unknown'
+  intent: 'launch_token' | 'wallet_query' | 'send_token' | 'buy_token' | 'sell_token' | 'unknown'
   tokenName: string | null
   tokenSymbol: string | null
+  tokenAddress?: string | null
+  amount?: string | null
+  recipientHandle?: string | null
   confidence: number
   rawReasoning?: string
 }
@@ -19,14 +22,8 @@ export interface TweetInputContext {
 }
 
 /**
- * 🌟 AI COMMAND PARSER FOR TWITTER BOT (BANKR-STYLE):
- * Interprets user's natural language intent and extracts token metadata.
- * 
- * Powered by OpenAI (gpt-4o-mini / gpt-4o / gpt-3.5-turbo)
- * 
- * IMPORTANT:
- * - AI is ONLY responsible for natural language intent & token ticker extraction.
- * - AI NEVER manages wallets, private keys, signer, or transaction execution.
+ * AI COMMAND PARSER FOR TWITTER BOT:
+ * Interprets user natural language intent: Launch Token, Wallet Query, Send/Tip, Buy, and Sell.
  */
 export async function parseTwitterCommandWithAI(
   tweet: TweetInputContext
@@ -50,20 +47,50 @@ export async function parseTwitterCommandWithAI(
           messages: [
             {
               role: 'system',
-              content: `You are a high-speed Web3 Twitter Bot AI Command Parser.
+              content: `You are a high-speed Web3 Twitter Bot AI Command Parser for Robinhood Chain.
 Analyze the user's tweet and output ONLY valid JSON matching this schema:
 {
-  "intent": "launch_token" | "wallet_query" | "unknown",
+  "intent": "launch_token" | "wallet_query" | "send_token" | "buy_token" | "sell_token" | "unknown",
   "tokenName": string | null,
   "tokenSymbol": string | null,
+  "tokenAddress": string | null,
+  "amount": string | null,
+  "recipientHandle": string | null,
   "confidence": number
 }
 
 RULES:
-1. If the user wants to launch/create a token (e.g. "@agent_ponscore launch token $TEST", "launch $TEST", "create token $DOG", "make a token $PEPE"), return intent="launch_token", tokenName and tokenSymbol equal to the ticker (without $), and confidence=1.0.
-2. Reject Solana addresses (e.g. solana:8iYZ...), pump links, arbitrary contract addresses, or random conversation -> intent="unknown", tokenName=null, tokenSymbol=null, confidence=0.
-3. If the user asks for their wallet address or balance (e.g. "whats my wallet", "check balance", "saldo"), return intent="wallet_query", tokenName=null, tokenSymbol=null, confidence=1.0.
-4. Output STRICT JSON ONLY. Do not invent symbols.`
+1. BUY TOKEN (e.g. "@agent_ponscore buy 0.001 eth $PONSCORE", "buy 10$ $TEST", "buy 0.005 eth 0x..."):
+   - intent: "buy_token"
+   - amount: numeric string e.g. "0.001" or "10"
+   - tokenSymbol: ticker without $ or null
+   - tokenAddress: 0x... if address provided
+   - confidence: 1.0
+
+2. SELL TOKEN (e.g. "@agent_ponscore sell all $PONSCORE", "sell 50% $TEST", "sell 1000 0x..."):
+   - intent: "sell_token"
+   - amount: "all" or "50%" or numeric string
+   - tokenSymbol: ticker without $ or null
+   - tokenAddress: 0x... if address provided
+   - confidence: 1.0
+
+3. SEND / TIP TOKEN (e.g. "@agent_ponscore send 500 ponscore to @meadgod", "@agent_ponscore send 500 ponscore", "tip 100 $PONS to @rahul"):
+   - intent: "send_token"
+   - amount: numeric string
+   - tokenSymbol: ticker without $
+   - recipientHandle: target username without @ (or null if not in text)
+   - confidence: 1.0
+
+4. LAUNCH TOKEN (e.g. "@agent_ponscore launch token $TEST", "launch $TEST", "create token $DOG"):
+   - intent: "launch_token"
+   - tokenName and tokenSymbol: ticker without $
+   - confidence: 1.0
+
+5. WALLET QUERY (e.g. "whats my wallet", "check balance", "saldo"):
+   - intent: "wallet_query"
+   - confidence: 1.0
+
+6. Output STRICT JSON ONLY.`
             },
             {
               role: 'user',
@@ -84,6 +111,9 @@ RULES:
               intent: parsed.intent,
               tokenName: parsed.tokenName ? String(parsed.tokenName).replace('$', '').toUpperCase() : null,
               tokenSymbol: parsed.tokenSymbol ? String(parsed.tokenSymbol).replace('$', '').toUpperCase() : null,
+              tokenAddress: parsed.tokenAddress ? String(parsed.tokenAddress).trim() : null,
+              amount: parsed.amount ? String(parsed.amount).trim() : null,
+              recipientHandle: parsed.recipientHandle ? String(parsed.recipientHandle).replace('@', '').trim() : null,
               confidence: Number(parsed.confidence) || 1.0,
             }
           }
@@ -99,10 +129,94 @@ RULES:
   // 2. High-precision Deterministic NLP Engine (Fallback / Zero-Latency)
   const clean = text
     .replace(/https?:\/\/\S+/gi, '')
-    .replace(/@\w+/g, '')
     .trim()
 
-  // A. Check Wallet Query Intent
+  const caMatch = clean.match(/0x[a-fA-F0-9]{40}/i)
+  const tokenAddress = caMatch ? caMatch[0] : null
+
+  // A. Check Buy Intent (e.g. "buy 0.001 eth $PONSCORE", "buy 10$ test", "buy 0.005 eth")
+  const isBuyKeyword = /\b(buy|beli|ape|long)\b/i.test(clean)
+  if (isBuyKeyword) {
+    const amountMatch = clean.match(/(\d+(?:\.\d+)?)\s*(?:eth|\$|usd|dollar)?/i)
+    const symMatch = clean.match(/\$([A-Za-z0-9_]{2,15})/i) || clean.match(/(?:buy|beli|ape)\s+(?:\d+(?:\.\d+)?\s*(?:eth|\$|usd)?\s+)?\$?([A-Za-z0-9_]{2,15})/i)
+    const ignored = new Set(['ETH', 'USD', 'USDT', 'USDC', 'BUY', 'BELI', 'TOKEN'])
+    const sym = symMatch && !ignored.has(symMatch[1].toUpperCase()) ? symMatch[1].toUpperCase() : 'PONSCORE'
+
+    return {
+      intent: 'buy_token',
+      tokenName: sym,
+      tokenSymbol: sym,
+      tokenAddress,
+      amount: amountMatch ? amountMatch[1] : '0.001',
+      confidence: 1.0,
+    }
+  }
+
+  // B. Check Sell Intent (e.g. "sell all $PONSCORE", "sell 50% test", "sell 1000 0x...")
+  const isSellKeyword = /\b(sell|jual|dump)\b/i.test(clean)
+  if (isSellKeyword) {
+    const isAll = /\b(all|semua|100%|max)\b/i.test(clean)
+    const pctMatch = clean.match(/(\d+(?:\.\d+)?)\s*%/i)
+    const numMatch = clean.match(/(?:sell|jual|dump)\s+(\d+(?:\.\d+)?)/i)
+    const amount = isAll ? 'all' : pctMatch ? `${pctMatch[1]}%` : numMatch ? numMatch[1] : 'all'
+
+    const symMatch = clean.match(/\$([A-Za-z0-9_]{2,15})/i) || clean.match(/(?:sell|jual|dump)\s+(?:all\s+|\d+%\s+|\d+\s+)?\$?([A-Za-z0-9_]{2,15})/i)
+    const ignored = new Set(['ALL', 'SEMUA', 'MAX', 'TOKEN', 'TOKENS', 'SELL', 'JUAL', 'ETH', 'USD'])
+    const sym = symMatch && !ignored.has(symMatch[1].toUpperCase()) ? symMatch[1].toUpperCase() : 'PONSCORE'
+
+    return {
+      intent: 'sell_token',
+      tokenName: sym,
+      tokenSymbol: sym,
+      tokenAddress,
+      amount,
+      confidence: 1.0,
+    }
+  }
+
+  // A. Check Send / Tip Intent (e.g. "send 500 ponscore to @meadgod", "send 500 ponscore", "tip 100 $PONS")
+  const isSendKeyword = /\b(send|tip|kirim|transfer|pay|give|bagi)\b/i.test(clean)
+  if (isSendKeyword) {
+    // Check explicit recipient in text e.g. "to @username", "ke @username", "@username"
+    const explicitTargetMatch = clean.match(/(?:to|ke|for)\s+@?([A-Za-z0-9_]{1,30})/i)
+    let recipientHandle = explicitTargetMatch ? explicitTargetMatch[1].replace('@', '') : null
+
+    // Extract all mentions in tweet
+    if (!recipientHandle) {
+      const mentions = clean.match(/@([A-Za-z0-9_]{1,30})/gi)
+      if (mentions) {
+        const botHandle = (process.env.TWITTER_BOT_HANDLE || 'agent_ponscore').replace('@', '').toLowerCase()
+        const otherMentions = mentions
+          .map((m) => m.replace('@', ''))
+          .filter((m) => m.toLowerCase() !== botHandle && m.toLowerCase() !== tweet.authorUsername.toLowerCase())
+        if (otherMentions.length > 0) {
+          recipientHandle = otherMentions[0]
+        }
+      }
+    }
+
+    // Match amount and token e.g. "500 ponscore", "500 $PONS", "0.001 eth", "100 test"
+    const sendDetailsMatch = clean.match(/(?:send|tip|kirim|transfer|pay|give|bagi)\s+(\d+(?:\.\d+)?)\s*(?:\$|usd)?\s*([A-Za-z0-9_]{2,15}|0x[a-fA-F0-9]{40})?/i)
+    if (sendDetailsMatch) {
+      const amount = sendDetailsMatch[1]
+      const rawSymbol = sendDetailsMatch[2]
+      let symbol = rawSymbol ? rawSymbol.replace('$', '').toUpperCase() : 'PONSCORE'
+      if (/^(TO|KE|FOR)$/i.test(symbol)) {
+        symbol = 'PONSCORE'
+      }
+
+      return {
+        intent: 'send_token',
+        tokenName: symbol,
+        tokenSymbol: symbol,
+        amount,
+        recipientHandle,
+        confidence: 1.0,
+      }
+    }
+  }
+
+  // B. Check Wallet Query Intent
   const walletQueryPattern = /\b(balance|wallet|saldo|deposit|check|whats my wallet|what is my wallet|my wallet|address|my address)\b/i
   const isLaunchKeyword = /\b(launch|deploy|create|make)\b/i.test(clean)
 
@@ -115,20 +229,18 @@ RULES:
     }
   }
 
-  // B. Check Launch Token Intent with Natural Language variations
-  // Strictly requires literal $ before ticker symbol (e.g. $TEST, $DOG, $PEPE)
+  // C. Check Launch Token Intent
   const launchMatch = clean.match(/(?:launch|create|make|deploy)\s+(?:a\s+)?(?:token\s+(?:called\s+)?)?\$([A-Za-z0-9_]{2,15})(?:\s|$)/i) ||
                       clean.match(/\$([A-Za-z0-9_]{2,15})/i)
 
   if (launchMatch) {
     const candidateSymbol = launchMatch[1].toUpperCase().replace('$', '').trim()
 
-    // Reject Solana keywords, single/long words, or standard stablecoins/native gas tokens
     if (
       candidateSymbol.toLowerCase().startsWith('solana') ||
       candidateSymbol.length < 2 ||
       candidateSymbol.length > 15 ||
-      /^(ETH|SOL|BTC|USDT|USDC|TOKEN)$/i.test(candidateSymbol)
+      /^(SOL|BTC|USDT|USDC)$/i.test(candidateSymbol)
     ) {
       return {
         intent: 'unknown',
@@ -146,7 +258,7 @@ RULES:
     }
   }
 
-  // C. Unknown / Unrelated tweet
+  // D. Unknown / Unrelated tweet
   return {
     intent: 'unknown',
     tokenName: null,

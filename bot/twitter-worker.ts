@@ -11,7 +11,13 @@ import {
   parseAbi,
   parseEther,
   formatEther,
+  parseUnits,
+  formatUnits,
+  encodeFunctionData,
+  getAddress,
+  isAddress,
   decodeEventLog,
+  erc20Abi,
 } from 'viem'
 import { robinhoodChain } from '@/lib/chains'
 import { downloadAndUploadImageToIPFS } from '@/lib/ipfs-server'
@@ -61,6 +67,8 @@ export interface TweetPayload {
   text: string
   imageUrl?: string
   createdAt?: string
+  inReplyToHandle?: string
+  inReplyToTweetId?: string
 }
 
 async function loadProcessedTweets(): Promise<string[]> {
@@ -164,6 +172,334 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
     }
   }
 
+  // Handle SEND / TIP TOKEN Intent
+  if (aiResult.intent === 'send_token') {
+    await markTweetProcessed(payload.tweetId)
+    const targetRecipient = (aiResult.recipientHandle || payload.inReplyToHandle || '').replace('@', '').trim()
+
+    if (!targetRecipient) {
+      return {
+        success: false,
+        message: `@${payload.authorHandle} Please specify a recipient or reply directly to their tweet.\n\nUsage: @agent_ponscore send 500 ponscore to @username`,
+      }
+    }
+
+    if (targetRecipient.toLowerCase() === cleanHandle) {
+      return {
+        success: false,
+        message: `@${payload.authorHandle} You cannot send tokens to yourself.`,
+      }
+    }
+
+    const amountStr = aiResult.amount || '0'
+    const numAmount = parseFloat(amountStr)
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return {
+        success: false,
+        message: `@${payload.authorHandle} Please specify a valid amount to send.\n\nUsage: @agent_ponscore send 500 ponscore to @${targetRecipient}`,
+      }
+    }
+
+    const rawSymbol = (aiResult.tokenSymbol || 'PONSCORE').toUpperCase()
+
+    // 1. Resolve Recipient Wallet (auto-creates Privy Server Wallet for recipient!)
+    const recipientMapping = await getOrCreateTwitterUserWallet('', targetRecipient.toLowerCase())
+    if (!recipientMapping?.walletAddress) {
+      return {
+        success: false,
+        message: `@${payload.authorHandle} Failed to initialize server wallet for @${targetRecipient}.`,
+      }
+    }
+
+    const recipientAddr = getAddress(recipientMapping.walletAddress)
+    const senderAddr = getAddress(activeWallet)
+
+    const publicClient = createPublicClient({
+      chain: robinhoodChain,
+      transport: http('https://robinhood-rpc.publicnode.com'),
+    })
+
+    const { getPrivyClient } = await import('@/lib/privy-server')
+    const privy = getPrivyClient()
+    if (!privy) {
+      return {
+        success: false,
+        message: `@${payload.authorHandle} Server wallet API is currently offline.`,
+      }
+    }
+
+    const gasPrice = ((await publicClient.getGasPrice()) * 125n) / 100n
+    const senderEthBalance = await publicClient.getBalance({ address: senderAddr })
+
+    // ── CASE A: NATIVE ETH TRANSFER ──
+    if (rawSymbol === 'ETH' || rawSymbol === 'NATIVE') {
+      const valueWei = parseEther(amountStr)
+      const estimatedGasCost = gasPrice * 21000n
+
+      if (senderEthBalance < valueWei + estimatedGasCost) {
+        return {
+          success: false,
+          message: `@${payload.authorHandle} Insufficient ETH balance. You have ${formatEther(senderEthBalance)} ETH, but need ~${formatEther(valueWei + estimatedGasCost)} ETH (including gas).`,
+        }
+      }
+
+      const nonce = await publicClient.getTransactionCount({ address: senderAddr })
+      const signRes = await (privy as any).walletApi.ethereum.signTransaction({
+        walletId: userWalletMapping.walletId,
+        transaction: {
+          to: recipientAddr,
+          value: `0x${valueWei.toString(16)}`,
+          data: '0x',
+          chainId: 4663,
+          nonce,
+          gasLimit: '0x5208', // 21,000 gas
+          gasPrice: `0x${gasPrice.toString(16)}`,
+          type: 0,
+        },
+      })
+
+      const txHash = await publicClient.sendRawTransaction({
+        serializedTransaction: signRes.signedTransaction as `0x${string}`,
+      })
+
+      await publicClient.waitForTransactionReceipt({ hash: txHash })
+
+      return {
+        success: true,
+        message: `Sent ${amountStr} ETH to @${targetRecipient} on Robinhood Chain.\n\nTX: https://robinhoodchain.blockscout.com/tx/${txHash}`,
+        txHash,
+      }
+    }
+
+    // ── CASE B: ERC20 TOKEN TRANSFER ──
+    let tokenContractAddr: `0x${string}` | null = null
+    let tokenDecimals = 18
+    let tokenSymbol = rawSymbol
+
+    if (isAddress(rawSymbol)) {
+      tokenContractAddr = getAddress(rawSymbol)
+    } else {
+      // Look up in launched_tokens.json
+      const REGISTRY_FILE = path.join(process.cwd(), 'data', 'launched_tokens.json')
+      let tokensList: any[] = []
+      if (existsSync(REGISTRY_FILE)) {
+        const raw = await readFile(REGISTRY_FILE, 'utf-8')
+        tokensList = JSON.parse(raw)
+      }
+
+      // Check known tokens / aliases
+      if (rawSymbol === 'PONSCORE') {
+        tokenContractAddr = '0xf3734609cAB98Cb4c23Ce7ff6D3F9bF7AeB23ce9'
+      } else if (rawSymbol === 'PONS') {
+        tokenContractAddr = '0xAaD591FE9536b802139C2a1802236750e1F643e0'
+      }
+
+      if (!tokenContractAddr) {
+        for (const item of tokensList) {
+          const ca = typeof item === 'string' ? item : item?.tokenAddress || item?.address
+          if (ca && isAddress(ca)) {
+            const sym = typeof item === 'object' ? item.symbol : ''
+            if (sym && sym.toUpperCase() === rawSymbol) {
+              tokenContractAddr = getAddress(ca)
+              tokenSymbol = sym.toUpperCase()
+              break
+            }
+          }
+        }
+      }
+
+      if (!tokenContractAddr) {
+        // Search by symbol on-chain across registry
+        for (const item of tokensList) {
+          const ca = typeof item === 'string' ? item : item?.tokenAddress || item?.address
+          if (ca && isAddress(ca)) {
+            try {
+              const onChainSym = await publicClient.readContract({
+                address: getAddress(ca),
+                abi: erc20Abi,
+                functionName: 'symbol',
+              })
+              if (onChainSym.toUpperCase() === rawSymbol) {
+                tokenContractAddr = getAddress(ca)
+                tokenSymbol = onChainSym.toUpperCase()
+                break
+              }
+            } catch { /* continue */ }
+          }
+        }
+      }
+    }
+
+    if (!tokenContractAddr) {
+      return {
+        success: false,
+        message: `@${payload.authorHandle} Token $${rawSymbol} not found on Robinhood Chain.`,
+      }
+    }
+
+    try {
+      tokenDecimals = await publicClient.readContract({
+        address: tokenContractAddr,
+        abi: erc20Abi,
+        functionName: 'decimals',
+      }).catch(() => 18)
+    } catch { /* default 18 */ }
+
+    const amountWei = parseUnits(amountStr, tokenDecimals)
+    const tokenBalance = await publicClient.readContract({
+      address: tokenContractAddr,
+      abi: erc20Abi,
+      functionName: 'balanceOf',
+      args: [senderAddr],
+    }).catch(() => 0n)
+
+    if (tokenBalance < amountWei) {
+      const formattedBal = formatUnits(tokenBalance, tokenDecimals)
+      return {
+        success: false,
+        message: `@${payload.authorHandle} Insufficient $${tokenSymbol} balance. You have ${formattedBal} $${tokenSymbol}, but tried to send ${amountStr} $${tokenSymbol}.`,
+      }
+    }
+
+    const estimatedGasCost = gasPrice * 100000n
+    if (senderEthBalance < estimatedGasCost) {
+      return {
+        success: false,
+        message: `@${payload.authorHandle} Insufficient ETH in your wallet to cover gas fee (~0.0001 ETH). Please deposit ETH to ${senderAddr}.`,
+      }
+    }
+
+    const calldata = encodeFunctionData({
+      abi: erc20Abi,
+      functionName: 'transfer',
+      args: [recipientAddr, amountWei],
+    })
+
+    const nonce = await publicClient.getTransactionCount({ address: senderAddr })
+    let gasLimit = 100000n
+    try {
+      const estGas = await publicClient.estimateGas({
+        account: senderAddr,
+        to: tokenContractAddr,
+        data: calldata,
+      })
+      gasLimit = (estGas * 125n) / 100n
+    } catch { /* fallback 100k */ }
+
+    const signRes = await (privy as any).walletApi.ethereum.signTransaction({
+      walletId: userWalletMapping.walletId,
+      transaction: {
+        to: tokenContractAddr,
+        value: '0x0',
+        data: calldata,
+        chainId: 4663,
+        nonce,
+        gasLimit: `0x${gasLimit.toString(16)}`,
+        gasPrice: `0x${gasPrice.toString(16)}`,
+        type: 0,
+      },
+    })
+
+    const txHash = await publicClient.sendRawTransaction({
+      serializedTransaction: signRes.signedTransaction as `0x${string}`,
+    })
+
+    await publicClient.waitForTransactionReceipt({ hash: txHash })
+
+    return {
+      success: true,
+      message: `Sent ${amountStr} $${tokenSymbol} to @${targetRecipient} on Robinhood Chain.\n\nTX: https://robinhoodchain.blockscout.com/tx/${txHash}`,
+      txHash,
+    }
+  }
+
+  // Handle BUY / SELL TOKEN Intent (Both Bonding Curve and Uniswap V4 Migrated)
+  if (aiResult.intent === 'buy_token' || aiResult.intent === 'sell_token') {
+    await markTweetProcessed(payload.tweetId)
+    const isBuy = aiResult.intent === 'buy_token'
+    const rawSymbol = (aiResult.tokenSymbol || 'PONSCORE').toUpperCase()
+    let tokenContractAddr: `0x${string}` | null = null
+    let tokenSymbol = rawSymbol
+
+    if (aiResult.tokenAddress && isAddress(aiResult.tokenAddress)) {
+      tokenContractAddr = getAddress(aiResult.tokenAddress)
+    } else {
+      const REGISTRY_FILE = path.join(process.cwd(), 'data', 'launched_tokens.json')
+      let tokensList: any[] = []
+      if (existsSync(REGISTRY_FILE)) {
+        const raw = await readFile(REGISTRY_FILE, 'utf-8')
+        tokensList = JSON.parse(raw)
+      }
+
+      if (rawSymbol === 'PONSCORE') {
+        tokenContractAddr = '0xf3734609cAB98Cb4c23Ce7ff6D3F9bF7AeB23ce9'
+      } else if (rawSymbol === 'PONS') {
+        tokenContractAddr = '0xAaD591FE9536b802139C2a1802236750e1F643e0'
+      }
+
+      if (!tokenContractAddr) {
+        for (const item of tokensList) {
+          const ca = typeof item === 'string' ? item : item?.tokenAddress || item?.address
+          if (ca && isAddress(ca)) {
+            const sym = typeof item === 'object' ? item.symbol : ''
+            if (sym && sym.toUpperCase() === rawSymbol) {
+              tokenContractAddr = getAddress(ca)
+              tokenSymbol = sym.toUpperCase()
+              break
+            }
+          }
+        }
+      }
+    }
+
+    if (!tokenContractAddr) {
+      return {
+        success: false,
+        message: `@${payload.authorHandle} Token $${rawSymbol} not found on Robinhood Chain.`,
+      }
+    }
+
+    const swapAmount = aiResult.amount || (isBuy ? '0.001' : 'all')
+
+    try {
+      const swapRes = await fetch('http://localhost:3001/api/launchpad/swap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          twitterHandle: payload.authorHandle,
+          tokenAddress: tokenContractAddr,
+          isBuy,
+          amount: swapAmount,
+          amountType: isBuy ? 'ETH' : (swapAmount === 'all' ? 'ALL' : (swapAmount.includes('%') ? 'PERCENT' : 'TOKEN')),
+          percentage: swapAmount.includes('%') ? parseFloat(swapAmount) : (swapAmount === 'all' ? 100 : undefined),
+        }),
+      })
+
+      const swapJson = await swapRes.json().catch(() => ({}))
+      if (!swapRes.ok || !swapJson.success) {
+        return {
+          success: false,
+          message: `@${payload.authorHandle} Swap failed: ${swapJson.error || 'Execution reverted'}`,
+        }
+      }
+
+      const actionText = isBuy ? `Bought $${tokenSymbol} with ${swapAmount} ETH` : `Sold ${swapAmount} $${tokenSymbol} to ETH`
+      const phaseText = swapJson.route === 'UNISWAP_V4' ? 'Uniswap V4 (Migrated)' : 'Bonding Curve'
+
+      return {
+        success: true,
+        message: `@${payload.authorHandle} ${actionText} on ${phaseText}.\n\nTX: https://robinhoodchain.blockscout.com/tx/${swapJson.txHash}`,
+        txHash: swapJson.txHash,
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Swap execution error'
+      return {
+        success: false,
+        message: `@${payload.authorHandle} Swap failed: ${msg}`,
+      }
+    }
+  }
+
   // Handle Unrecognized or non-launch intent
   if (aiResult.intent !== 'launch_token' || !aiResult.tokenSymbol) {
     console.log(`[Twitter COMMAND REJECTED]`)
@@ -171,7 +507,7 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
     await markTweetProcessed(payload.tweetId)
     return {
       success: false,
-      message: `@${payload.authorHandle} Usage:\n@agent_ponscore launch token $TEST`,
+      message: `@${payload.authorHandle} Usage:\n- @agent_ponscore launch token $TEST [attach image]\n- @agent_ponscore send 500 ponscore to @username\n- @agent_ponscore buy 0.001 eth $PONSCORE\n- @agent_ponscore sell all $PONSCORE\n- @agent_ponscore check balance`,
     }
   }
 
@@ -713,8 +1049,8 @@ export async function pollMentions() {
 
       console.log(`[STAGE 3 — SELECTED TWEET]`)
       console.log(`Tweet ID: ${tweet.id}`)
-      console.log(`Text: "${tweet.text}"`)
-      console.log(`Author: @${authorUsername}\n`)
+      const inReplyToUserId = tweet.in_reply_to_user_id
+      const inReplyToHandle = inReplyToUserId ? usersMap.get(inReplyToUserId) : undefined
 
       const result = await processTweetLaunch({
         tweetId: tweet.id,
@@ -723,6 +1059,8 @@ export async function pollMentions() {
         text: tweet.text,
         imageUrl: imageUrl || undefined,
         createdAt: tweet.created_at,
+        inReplyToHandle,
+        inReplyToTweetId: tweet.in_reply_to_tweet_id,
       })
 
       if (process.env.TWITTER_API_KEY && process.env.TWITTER_ACCESS_TOKEN && !process.env.TWITTER_DEBUG_ONLY) {
@@ -756,7 +1094,7 @@ async function checkOpenAIHealth(): Promise<{ ok: boolean; message: string }> {
 
 let isListenerStarted = false
 
-if (require.main === module) {
+if (typeof require !== 'undefined' && typeof module !== 'undefined' && require.main === module) {
   if (!isListenerStarted) {
     isListenerStarted = true
     console.log(`\n==================================================`)

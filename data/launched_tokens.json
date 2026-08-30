@@ -1,4 +1,48 @@
 [
+  {
+    "tokenAddress": "0xe80Dd8DC5cDEe190A96c56B06B138f02BDb6310F",
+    "curveAddress": "0x7a41CF8a66008438526BEdCB63930abA76971E54",
+    "name": "TEST",
+    "symbol": "TEST",
+    "logo": "https://ipfs.io/ipfs/bafkreihjwy4l3thdim35dpkpy3j2ygtpeibw2xdxaul6z2no5dywctzlcq",
+    "description": "TEST fair launched on Pons v2",
+    "deployer": "0xa960dE53788c55e76c659fDC3d0B96C55F7e1013",
+    "createdAt": 1788090391787,
+    "txHash": "0xfe6cdee0628eb2f42ab73cd175c2eedb35ce64355a6b47dc183872d8bbeef3b8"
+  },
+  {
+    "tokenAddress": "0x869e8E65A35Eb22901975B33c759299001d4488E",
+    "curveAddress": "0x794Ac85c7Ddd77145741862B8aa99B1569517881",
+    "name": "TEST",
+    "symbol": "TEST",
+    "logo": "https://ipfs.io/ipfs/bafkreihjwy4l3thdim35dpkpy3j2ygtpeibw2xdxaul6z2no5dywctzlcq",
+    "description": "TEST fair launched on Pons v2",
+    "deployer": "0xa960dE53788c55e76c659fDC3d0B96C55F7e1013",
+    "createdAt": 1788090130711,
+    "txHash": "0xf01c1d0cb310e58f87a7c7a27f30939e00d12dd816f03219c78fb1c54a5cac77"
+  },
+  {
+    "tokenAddress": "0x52a03Cd2FEE18216EE45C66D9Be8C0ee2Cd8399B",
+    "curveAddress": "0x31f94B07e533C0bba7ad6e57f64512a51B46EA8b",
+    "name": "TEST",
+    "symbol": "TEST",
+    "logo": "https://ipfs.io/ipfs/bafkreihjwy4l3thdim35dpkpy3j2ygtpeibw2xdxaul6z2no5dywctzlcq",
+    "description": "TEST fair launched on Pons v2",
+    "deployer": "0xa960dE53788c55e76c659fDC3d0B96C55F7e1013",
+    "createdAt": 1788090116981,
+    "txHash": "0x003631a0ede64eafee3811c4675fd42421fbb4553db196d3a57040c759df6d3b"
+  },
+  {
+    "tokenAddress": "0xD5bc8088220Eb421D2345F6B467a9a436F42777f",
+    "curveAddress": "0x15275736D6D1B1c31aDFeEd9B78A5a1d2d8405d2",
+    "name": "TEST",
+    "symbol": "TEST",
+    "logo": "https://ipfs.io/ipfs/bafkreihjwy4l3thdim35dpkpy3j2ygtpeibw2xdxaul6z2no5dywctzlcq",
+    "description": "TEST fair launched on Pons v2",
+    "deployer": "0xa960dE53788c55e76c659fDC3d0B96C55F7e1013",
+    "createdAt": 1788090083187,
+    "txHash": "0x96e94b8a988ec7b0b5715dacb535586e9f29521f41fc1ee71d4142cf436a7b23"
+  },
   "0xBc640222014DFd2Ef3336F3b23a1eCEa813afaDa",
   "0x8613Da764d137b1344C02fBcE39d1667d3D90cd8",
   "0xe6F7b6B205b05062da1C8F09c9Cfa74C06AdA6D0",

@@ -21,10 +21,21 @@ export function useWallet() {
 
   // User authentication check
   const isAuth = ready && (authenticated || !!user)
-  const twitterHandle = user?.twitter?.username
+
+  // 1. Check if user explicitly connected an external wallet (MetaMask, Rabby, WalletConnect)
+  const externalWallet = wallets?.find((w) => w.walletClientType !== 'privy')
+  const embeddedWallet = isAuth
+    ? (getEmbeddedConnectedWallet(wallets) ??
+       wallets?.find((w) => w.walletClientType === 'privy') ??
+       wallets?.[0])
+    : undefined
+  const isExternalWallet = !!externalWallet
+
+  // 2. Resolve Privy Server Wallet for Social login (Twitter / Google)
+  const twitterHandle = user?.twitter?.username || user?.email?.address?.split('@')[0]
 
   useEffect(() => {
-    if (!twitterHandle) return
+    if (!twitterHandle || isExternalWallet) return
     fetch(`/api/bot/wallet?handle=${encodeURIComponent(twitterHandle)}`)
       .then(res => res.json())
       .then(data => {
@@ -33,49 +44,12 @@ export function useWallet() {
         }
       })
       .catch(console.error)
-  }, [twitterHandle])
+  }, [twitterHandle, isExternalWallet])
 
-  // 1. Ambil target address utama dari user profile
-  const userWalletAccount = isAuth
-    ? (user?.linkedAccounts?.find(
-        (a) => a.type === 'wallet' && (a as { walletClientType?: string }).walletClientType === 'privy'
-      ) as { address?: string } | undefined)
+  // 3. Active address: External wallet if connected, otherwise Server Wallet
+  const address = isAuth
+    ? ((externalWallet?.address as `0x${string}` | undefined) ?? unifiedServerAddress ?? (user?.wallet?.address as `0x${string}` | undefined))
     : undefined
-
-  const primaryUserAddress = isAuth ? (user?.wallet?.address ?? userWalletAccount?.address) : undefined
-
-  // 2. Cari embedded connected wallet yang sesuai dengan primary address
-  const embeddedWallet = isAuth
-    ? ((primaryUserAddress ? wallets.find((w) => w.address.toLowerCase() === primaryUserAddress.toLowerCase()) : null) ??
-       getEmbeddedConnectedWallet(wallets) ??
-       wallets.find((w) => w.walletClientType === 'privy') ??
-       wallets[0])
-    : undefined
-
-  const fallbackAddress = isAuth
-    ? (primaryUserAddress ??
-       (user?.linkedAccounts?.find((a) => a.type === 'wallet') as { address?: string } | undefined)?.address)
-    : undefined
-
-  const address = isAuth ? (unifiedServerAddress ?? (embeddedWallet?.address ?? fallbackAddress) as `0x${string}` | undefined) : undefined
-
-  const createWalletAttempted = useRef(false)
-
-  // 3. Jika user login tapi belum punya wallet sama sekali, otomatis buat wallet (hanya dipanggil 1x)
-  useEffect(() => {
-    const hasAnyWallet = wallets.length > 0 || !!user?.linkedAccounts?.some(a => a.type === 'wallet')
-    if (ready && authenticated && !address && !hasAnyWallet && !createWalletAttempted.current) {
-      createWalletAttempted.current = true
-      setCreatingWallet(true)
-      createWallet()
-        .catch((err) => {
-          console.error('Auto create wallet error:', err)
-        })
-        .finally(() => {
-          setCreatingWallet(false)
-        })
-    }
-  }, [ready, authenticated, address, wallets, user, createWallet])
 
   // 4. Fetch balance dari server-side API (hindari RPC rate-limit & CORS)
   const refetchBalance = useCallback(async () => {

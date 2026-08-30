@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { twitterHandle, tweetText, imageUrl } = body
+    const { twitterHandle, tweetText, imageUrl, inReplyToHandle, replyToHandle } = body
 
     if (!twitterHandle || !tweetText) {
       return NextResponse.json({ error: 'twitterHandle and tweetText required' }, { status: 400 })
@@ -16,7 +16,8 @@ export async function POST(req: NextRequest) {
       tweetId: `sim_${Date.now()}`,
       authorHandle: twitterHandle,
       text: tweetText,
-      imageUrl: imageUrl || 'https://ipfs.io/ipfs/bafkreicaxbt5gboi3h3ucjnojh5u2wkxomdt3tmrofv5dseknzfefd3ls4',
+      imageUrl: imageUrl || undefined,
+      inReplyToHandle: inReplyToHandle || replyToHandle || undefined,
     })
 
     return NextResponse.json(result)
