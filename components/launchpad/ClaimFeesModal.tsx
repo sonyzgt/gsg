@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { formatEther, encodeFunctionData } from 'viem'
+import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { useWallet } from '@/hooks/useWallet'
 import { activeChain } from '@/lib/chains'
 import Modal from '@/components/ui/Modal'
@@ -20,6 +21,8 @@ interface ClaimFeesModalProps {
 }
 
 export default function ClaimFeesModal({ open, onClose }: ClaimFeesModalProps) {
+  const { user } = usePrivy()
+  const { wallets } = useWallets()
   const { address, embeddedWallet, refetchBalance } = useWallet()
   const { theme } = useTheme()
   const [claimableWei, setClaimableWei] = useState<bigint>(0n)
@@ -56,23 +59,32 @@ export default function ClaimFeesModal({ open, onClose }: ClaimFeesModalProps) {
       const res = await fetch('/api/launchpad/claim-fees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address }),
+        body: JSON.stringify({
+          address,
+          twitterHandle: user?.twitter?.username,
+        }),
       })
 
-      if (res.ok) {
-        const data = await res.json()
-        if (data.success) {
-          toast.success(`Successfully claimed ${claimableEth.toFixed(5)} ETH into your wallet!`)
-          await Promise.all([fetchBalance(), refetchBalance()])
-          onClose()
-          return
-        }
+      const data = await res.json().catch(() => ({}))
+
+      if (res.ok && data?.success) {
+        toast.success(`Successfully claimed ${claimableEth.toFixed(5)} ETH into your wallet!`)
+        await Promise.all([fetchBalance(), refetchBalance()])
+        onClose()
+        return
       }
 
-      // 2. If server-side is not applicable, try embedded wallet signing
-      if (embeddedWallet) {
-        await embeddedWallet.switchChain(activeChain.id)
-        const provider = await embeddedWallet.getEthereumProvider()
+      if (data?.error && res.status !== 404) {
+        throw new Error(data.error)
+      }
+
+      // 2. If server-side is not applicable, try connected external wallet signing
+      const activeWallet = wallets?.find(w => w.address?.toLowerCase() === address?.toLowerCase()) || wallets?.[0] || embeddedWallet
+      if (activeWallet) {
+        try {
+          await activeWallet.switchChain(activeChain.id)
+        } catch { /* continue */ }
+        const provider = await activeWallet.getEthereumProvider()
         const { createWalletClient, custom } = await import('viem')
         const walletClient = createWalletClient({
           chain: activeChain,
@@ -85,7 +97,7 @@ export default function ClaimFeesModal({ open, onClose }: ClaimFeesModalProps) {
           functionName: 'claim',
         })
 
-        toast('Submitting claim from Fee Escrow...')
+        toast('Submitting claim from Fee Escrow in your wallet...')
 
         await walletClient.sendTransaction({
           account,
@@ -100,8 +112,7 @@ export default function ClaimFeesModal({ open, onClose }: ClaimFeesModalProps) {
         return
       }
 
-      const errData = await res.json().catch(() => ({}))
-      throw new Error(errData.error || 'Claim failed')
+      throw new Error(data?.error || 'Claim failed')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Claim failed'
       if (msg.includes('cancel') || msg.includes('reject')) {

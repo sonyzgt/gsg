@@ -15,17 +15,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'twitterHandle or address required' }, { status: 400 })
     }
 
+    const { getBotUsers } = await import('@/lib/bot-wallet')
     const { getOrCreateTwitterUserWallet } = await import('@/lib/privy-server')
-    const mapping = await getOrCreateTwitterUserWallet(
-      '',
-      twitterHandle ? twitterHandle.replace('@', '') : ''
+    const users = await getBotUsers()
+    const foundUser = users.find(
+      (u) =>
+        (address && u.walletAddress?.toLowerCase() === address.toLowerCase()) ||
+        (twitterHandle && u.twitterHandle?.toLowerCase() === twitterHandle.replace('@', '').toLowerCase())
     )
 
-    const targetAddress = mapping?.walletAddress || address
-    const targetWalletId = mapping?.walletId
+    let targetAddress = foundUser?.walletAddress || address
+    let targetWalletId = (foundUser as any)?.walletId
 
-    if (!targetAddress) {
-      return NextResponse.json({ error: 'Wallet not found' }, { status: 404 })
+    if (!targetWalletId && twitterHandle) {
+      const mapping = await getOrCreateTwitterUserWallet('', twitterHandle.replace('@', ''))
+      if (mapping) {
+        targetAddress = mapping.walletAddress
+        targetWalletId = mapping.walletId
+      }
+    }
+
+    if (!targetAddress || !targetWalletId) {
+      return NextResponse.json({ error: 'Server wallet not found for address' }, { status: 404 })
     }
 
     const publicClient = createPublicClient({
