@@ -37,6 +37,36 @@ const NATIVE_ETH = '0x0000000000000000000000000000000000000000'
 const UNIVERSAL_ROUTER = '0x8876789976decbfcbbbe364623c63652db8c0904' as `0x${string}`
 const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3' as `0x${string}`
 
+const PERMIT2_ABI = [
+  {
+    name: 'approve',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'token', type: 'address' },
+      { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint160' },
+      { name: 'expiration', type: 'uint48' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'allowance',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'user', type: 'address' },
+      { name: 'token', type: 'address' },
+      { name: 'spender', type: 'address' },
+    ],
+    outputs: [
+      { name: 'amount', type: 'uint160' },
+      { name: 'expiration', type: 'uint48' },
+      { name: 'nonce', type: 'uint48' },
+    ],
+  },
+] as const
+
 interface UniswapQuoteResponse {
   success: boolean
   source: string
@@ -51,7 +81,7 @@ interface UniswapQuoteResponse {
 }
 
 export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidgetProps) {
-  const { authenticated } = usePrivy()
+  const { authenticated, user } = usePrivy()
   const { address, balance, embeddedWallet, refetchBalance } = useWallet()
   const { theme } = useTheme()
   const [loggingIn, setLoggingIn] = useState(false)
@@ -145,10 +175,17 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
     checkAllowance()
   }, [checkAllowance])
 
-  // Fetch Uniswap / DEX Quote when amount or token changes
+  // Fetch accurate quote when amount or token changes
+  const [accurateQuote, setAccurateQuote] = useState<{
+    estimatedOutput: number
+    minReceived: number
+    priceNative: number
+    route?: string
+  } | null>(null)
+
   useEffect(() => {
-    if (!isGraduated || !amount || parseFloat(amount) <= 0 || !token.tokenAddress) {
-      setQuoteData(null)
+    if (!amount || parseFloat(amount) <= 0 || !token.tokenAddress) {
+      setAccurateQuote(null)
       return
     }
 
@@ -161,26 +198,28 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
     const timer = setTimeout(async () => {
       setFetchingQuote(true)
       try {
-        const tokenIn = isBuy ? NATIVE_ETH : token.tokenAddress
-        const tokenOut = isBuy ? token.tokenAddress : NATIVE_ETH
-        const amountWei = isBuy ? parseEther(amount).toString() : parseUnits(amount, 18).toString()
-
-        const res = await fetch('/api/uniswap/quote', {
+        const res = await fetch('/api/quote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            tokenIn,
-            tokenOut,
-            amount: amountWei,
-            walletAddress: address || '0x0000000000000000000000000000000000000000',
+            tokenAddress: token.tokenAddress,
+            amount,
+            isBuy,
             slippage,
           }),
           signal: controller.signal,
         })
 
         if (res.ok) {
-          const data: UniswapQuoteResponse = await res.json()
-          setQuoteData(data)
+          const data = await res.json()
+          if (data.success) {
+            setAccurateQuote({
+              estimatedOutput: data.estimatedOutput,
+              minReceived: data.minReceived,
+              priceNative: data.priceNative,
+              route: data.route,
+            })
+          }
         }
       } catch (err: unknown) {
         if ((err as Error).name !== 'AbortError') {
@@ -189,13 +228,13 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
       } finally {
         setFetchingQuote(false)
       }
-    }, 300)
+    }, 200)
 
     return () => {
       clearTimeout(timer)
       controller.abort()
     }
-  }, [isGraduated, isBuy, amount, token.tokenAddress, slippage, address])
+  }, [isBuy, amount, token.tokenAddress, slippage])
 
   // Derived calculations
   const ethBalanceNum = balance ? parseFloat(balance.formatted) : 0
@@ -206,117 +245,76 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
   const estimatedOutput = useMemo(() => {
     if (amountNum <= 0) return 0
 
-    if (isGraduated && quoteData && quoteData.amountOut) {
-      const outNum = parseFloat(formatUnits(BigInt(quoteData.amountOut), 18))
-      if (outNum > 0) return outNum
+    if (accurateQuote && accurateQuote.estimatedOutput > 0) {
+      return accurateQuote.estimatedOutput
     }
 
     // Default price fallback
     const priceNative =
-      token.priceNative > 0 ? token.priceNative : isGraduated ? 0.00000003425 : 0.0000000025
+      accurateQuote?.priceNative || token.priceNative || (isGraduated ? 0.00000000588 : 0.0000000025)
     if (isBuy) {
-      const feeDeduction = amountNum * 0.985
-      return feeDeduction / priceNative
+      return (amountNum * 0.985) / priceNative
     } else {
-      const grossEth = amountNum * priceNative
-      return grossEth * 0.985
+      return amountNum * priceNative * 0.985
     }
-  }, [amountNum, isBuy, token.priceNative, isGraduated, quoteData])
+  }, [amountNum, isBuy, token.priceNative, isGraduated, accurateQuote])
 
   const minReceived = useMemo(() => {
-    if (isGraduated && quoteData && quoteData.minAmountOut) {
-      const minNum = parseFloat(formatUnits(BigInt(quoteData.minAmountOut), 18))
-      if (minNum > 0) return minNum
+    if (accurateQuote && accurateQuote.minReceived > 0) {
+      return accurateQuote.minReceived
     }
     return estimatedOutput * (1 - slippage / 100)
-  }, [estimatedOutput, slippage, isGraduated, quoteData])
+  }, [estimatedOutput, slippage, accurateQuote])
 
   const hasSufficientBalance = isBuy
-    ? amountNum > 0 && amountNum <= Math.max(0, ethBalanceNum - 0.0001)
-    : amountNum > 0 && amountNum <= tokenBalanceNum
+    ? amountNum > 0 && amountNum <= Math.max(0, ethBalanceNum - 0.00001)
+    : amountNum > 0 && (tokenBalanceNum > 0 ? amountNum <= tokenBalanceNum * 1.05 : true)
 
   // Dynamic Execution Route
   const executionRouteDisplay = useMemo(() => {
+    if (accurateQuote?.route) return accurateQuote.route
     if (isCurve) return 'PONS V2 BONDING CURVE'
-    if (quoteData?.route) return quoteData.route.toUpperCase()
     return 'UNISWAP V4'
-  }, [isCurve, quoteData])
-
-  // Human-readable Error Mapping
-  function mapErrorMessage(err: unknown): string {
-    const msg = err instanceof Error ? err.message : String(err)
-    if (msg.includes('cancel') || msg.includes('reject') || msg.includes('denied') || msg.includes('User rejected')) {
-      return 'Transaction cancelled by user.'
-    }
-    if (msg.includes('insufficient funds') || msg.includes('exceeds balance')) {
-      return 'Insufficient ETH balance for amount + gas fee.'
-    }
-    if (msg.includes('allowance') || msg.includes('INSUFFICIENT_ALLOWANCE')) {
-      return 'Token approval is required before swapping.'
-    }
-    if (msg.includes('revert') || msg.includes('execution reverted')) {
-      return 'Swap simulation failed. Please refresh quote or adjust slippage.'
-    }
-    if (msg.includes('chain') || msg.includes('network')) {
-      return 'Please switch your wallet to Robinhood Chain (ID: 4663).'
-    }
-    return msg.slice(0, 100)
-  }
-
-  // Handle Token Approval
-  async function handleApprove() {
-    if (!address || !embeddedWallet || !token.tokenAddress) return
-    setApproving(true)
-
-    try {
-      await embeddedWallet.switchChain(activeChain.id)
-      const provider = await embeddedWallet.getEthereumProvider()
-      const { createWalletClient, custom } = await import('viem')
-      const walletClient = createWalletClient({
-        chain: activeChain,
-        transport: custom(provider),
-      })
-      const [account] = await walletClient.getAddresses()
-
-      const calldata = encodeFunctionData({
-        abi: erc20Abi,
-        functionName: 'approve',
-        args: [targetSpender, maxUint256],
-      })
-
-      toast(`Approving $${token.symbol} access in wallet...`)
-
-      const txHash = await walletClient.sendTransaction({
-        account,
-        to: getAddress(token.tokenAddress),
-        data: calldata,
-        gas: 100000n,
-      })
-
-      const pubClient = createPublicClient({
-        chain: robinhoodChain,
-        transport: http('https://robinhood-rpc.publicnode.com'),
-      })
-
-      toast('Waiting for approval confirmation on Robinhood Chain...')
-      await pubClient.waitForTransactionReceipt({ hash: txHash })
-
-      setNeedsApproval(false)
-      toast.success(`Access approved for $${token.symbol}!`)
-    } catch (err: unknown) {
-      toast.error(mapErrorMessage(err))
-    } finally {
-      setApproving(false)
-    }
-  }
+  }, [accurateQuote, isCurve])
 
   // Handle Swap Execution
   async function handleSwap() {
-    if (!address || !embeddedWallet || !hasSufficientBalance) return
+    if (!address || amountNum <= 0) return
     setSwapping(true)
 
     try {
-      // 1. Validate Network
+      // 1. Try server wallet swap first (Privy Server Wallet)
+      const srvSwapRes = await fetch('/api/launchpad/swap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address,
+          twitterHandle: user?.twitter?.username,
+          tokenAddress: token.tokenAddress,
+          isBuy,
+          amount,
+          slippage,
+        }),
+      })
+
+      const srvJson = await srvSwapRes.json().catch(() => ({}))
+
+      if (srvSwapRes.ok && srvJson?.success) {
+        toast.success(isBuy ? `Swap successful! Bought $${token.symbol}` : `Swap successful! Sold $${token.symbol} for ETH`)
+        await Promise.all([refetchBalance(), fetchTokenBal()])
+        setAmount('')
+        if (onSwapSuccess) onSwapSuccess()
+        return
+      }
+
+      if (srvJson?.error) {
+        throw new Error(srvJson.error)
+      }
+
+      if (!embeddedWallet) {
+        throw new Error('Swap transaction failed')
+      }
+
       await embeddedWallet.switchChain(ROBINHOOD_CHAIN_ID)
       const provider = await embeddedWallet.getEthereumProvider()
       const { createWalletClient, custom } = await import('viem')
@@ -382,7 +380,6 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
         // ── ROUTE 2: UNISWAP TRADING API / UNIVERSAL ROUTER (GRADUATED) ──
         toast(`Fetching Uniswap swap transaction for $${token.symbol}...`)
 
-        // Request exact Uniswap v4 Universal Router calldata from server
         const amountInWei = isBuy ? parseEther(amount).toString() : parseUnits(amount, 18).toString()
         const minAmountOutWei = quoteData?.minAmountOut || (isBuy ? parseUnits(Math.floor(minReceived).toString(), 18).toString() : parseEther(minReceived.toFixed(18)).toString())
         const deadline = Math.floor(Date.now() / 1000) + 1200
@@ -412,36 +409,6 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
         const targetValue = isBuy ? parseEther(amount) : (swapJson.value ? BigInt(swapJson.value) : 0n)
         const targetData = (swapJson.data || '0x') as `0x${string}`
 
-        // Check & execute ERC20 approval for SELL on Uniswap v4
-        if (!isBuy) {
-          try {
-            const tokenCa = getAddress(token.tokenAddress)
-            const currentAllowance = await pubClient.readContract({
-              address: tokenCa,
-              abi: erc20Abi,
-              functionName: 'allowance',
-              args: [userAddr, targetTo],
-            })
-            if (currentAllowance < BigInt(amountInWei)) {
-              toast(`Approving $${token.symbol} for Uniswap swap...`)
-              const approveTx = await walletClient.sendTransaction({
-                account,
-                to: tokenCa,
-                data: encodeFunctionData({
-                  abi: erc20Abi,
-                  functionName: 'approve',
-                  args: [targetTo, maxUint256],
-                }),
-              })
-              await pubClient.waitForTransactionReceipt({ hash: approveTx })
-              toast.success(`$${token.symbol} approved!`)
-            }
-          } catch (approveErr) {
-            console.error('[Uniswap v4] Token approval error:', approveErr)
-          }
-        }
-
-        // Pre-simulation on Robinhood Chain
         let gasLimit = swapJson.gasLimit ? BigInt(swapJson.gasLimit) : 450000n
         try {
           const estimatedGas = await pubClient.estimateGas({
@@ -451,10 +418,7 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
             data: targetData,
           })
           gasLimit = (estimatedGas * 120n) / 100n
-          console.log('[Uniswap v4] Pre-simulation succeeded. Gas:', estimatedGas)
-        } catch (simErr) {
-          console.warn('[Uniswap v4] Simulation estimation warning, proceeding with safe gas:', simErr)
-        }
+        } catch { /* use safe gas */ }
 
         const txHash = await walletClient.sendTransaction({
           account,
@@ -468,19 +432,7 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
         const receipt = await pubClient.waitForTransactionReceipt({ hash: txHash })
 
         if (receipt.status === 'success') {
-          toast.success(
-            <div>
-              <p className="font-bold">Swap Successful on Uniswap!</p>
-              <a
-                href={`https://robinhoodchain.blockscout.com/tx/${txHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[11px] underline text-amber-300"
-              >
-                View on Blockscout ↗
-              </a>
-            </div>
-          )
+          toast.success(`Swap Successful on Uniswap!`)
         } else {
           throw new Error('Swap transaction reverted on-chain.')
         }
@@ -491,7 +443,8 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
       if (onSwapSuccess) onSwapSuccess()
     } catch (err: unknown) {
       console.error('Swap execution error:', err)
-      toast.error(mapErrorMessage(err))
+      const rawMsg = err instanceof Error ? err.message : String(err)
+      toast.error(rawMsg.slice(0, 120))
     } finally {
       setSwapping(false)
     }
@@ -757,21 +710,11 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
         >
           CONNECT WALLET TO SWAP
         </Button>
-      ) : !isBuy && needsApproval ? (
-        <Button
-          variant="primary"
-          onClick={handleApprove}
-          loading={approving}
-          disabled={approving || swapping}
-          className="w-full py-3.5 text-xs font-black uppercase"
-        >
-          {approving ? 'APPROVING TOKEN ACCESS...' : `APPROVE $${token.symbol} ACCESS`}
-        </Button>
       ) : (
         <Button
           variant={isBuy ? 'primary' : 'danger'}
           onClick={handleSwap}
-          disabled={!hasSufficientBalance || swapping || approving || fetchingQuote}
+          disabled={!hasSufficientBalance || swapping}
           loading={swapping}
           className="w-full py-3.5 text-xs font-black uppercase"
         >

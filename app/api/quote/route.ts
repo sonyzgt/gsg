@@ -1,130 +1,179 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { isAddress, getAddress } from 'viem'
+import {
+  createPublicClient,
+  http,
+  parseEther,
+  parseUnits,
+  formatEther,
+  formatUnits,
+  parseAbi,
+  getAddress,
+  isAddress,
+} from 'viem'
+import { robinhoodChain } from '@/lib/chains'
+import { getPonsTokenInfo } from '@/lib/pons-v2'
 
 export const dynamic = 'force-dynamic'
 
-const GECKOTERMINAL_BASE = 'https://api.geckoterminal.com/api/v2'
-const GT_NETWORK = 'robinhood'
+const CURVE_ABI = parseAbi([
+  'function buy(uint256 quoteIn, uint256 minTokensOut, address recipient) payable returns (uint256 tokensOut)',
+  'function sell(uint256 tokensIn, uint256 minQuoteOut, address recipient) returns (uint256 quoteOut)',
+])
+
+const DUMMY_ACCOUNT = '0x5093B38d28E9E8F571157C61762FdA15c30670a6' as `0x${string}`
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { tokenAddress, amountIn, isBuy, tokenDecimals } = body
+    const { tokenAddress, amount, isBuy = true, slippage = 1.0 } = body
 
-    if (!tokenAddress || !isAddress(tokenAddress)) {
-      return NextResponse.json({ error: 'Token address tidak valid' }, { status: 400 })
+    if (!tokenAddress || !isAddress(tokenAddress) || !amount || parseFloat(amount) <= 0) {
+      return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 })
     }
 
-    const tokenAddr = getAddress(tokenAddress)
-    const addrLower = tokenAddr.toLowerCase()
-    const amount = parseFloat(amountIn)
+    const numAmount = parseFloat(amount)
+    const slipBps = Math.floor(Number(slippage) * 100)
+    const slipMultiplier = 1 - slipBps / 10000
 
-    if (!amount || amount <= 0) {
-      return NextResponse.json({ error: 'Amount tidak valid' }, { status: 400 })
+    const publicClient = createPublicClient({
+      chain: robinhoodChain,
+      transport: http('https://robinhood-rpc.publicnode.com'),
+    })
+
+    const tokenInfo = await getPonsTokenInfo(tokenAddress)
+    if (!tokenInfo) {
+      return NextResponse.json({ error: 'Token info not found' }, { status: 404 })
     }
 
-    // Ambil data token dari GeckoTerminal untuk mendapatkan pool terbaik
-    const tokenRes = await fetch(
-      `${GECKOTERMINAL_BASE}/networks/${GT_NETWORK}/tokens/${addrLower}`,
-      {
-        headers: { 'Accept': 'application/json;version=20230302' },
-        cache: 'no-store',
-      }
-    )
+    const isGraduated = tokenInfo.graduated || tokenInfo.phase === 2
+    const tokenCa = getAddress(tokenAddress)
 
-    if (!tokenRes.ok) {
-      return NextResponse.json({ error: 'Token tidak ditemukan di GeckoTerminal' }, { status: 400 })
-    }
+    if (!isGraduated && tokenInfo.curveAddress) {
+      // ══════════════════════════════════════════════════════════════════
+      // ── ROUTE 1: EXACT BONDING CURVE SIMULATION ──
+      // ══════════════════════════════════════════════════════════════════
+      const curveAddress = getAddress(tokenInfo.curveAddress)
 
-    const tokenData = await tokenRes.json()
-    const topPools: Array<{ id: string }> = tokenData?.data?.relationships?.top_pools?.data || []
+      if (isBuy) {
+        const quoteIn = parseEther(String(amount))
+        try {
+          const sim = await publicClient.simulateContract({
+            address: curveAddress,
+            abi: CURVE_ABI,
+            functionName: 'buy',
+            args: [quoteIn, 0n, DUMMY_ACCOUNT],
+            value: quoteIn,
+            account: DUMMY_ACCOUNT,
+          })
+          const tokensOut = sim.result
+          const tokensOutNum = parseFloat(formatUnits(tokensOut, 18))
+          const minTokensOutNum = tokensOutNum * slipMultiplier
 
-    if (topPools.length === 0) {
-      return NextResponse.json({ error: 'Pool tidak ditemukan untuk token ini' }, { status: 400 })
-    }
+          return NextResponse.json({
+            success: true,
+            isGraduated: false,
+            estimatedOutput: tokensOutNum,
+            minReceived: minTokensOutNum,
+            estimatedOutputRaw: tokensOut.toString(),
+            priceNative: tokenInfo.priceNative,
+            route: 'PONS V2 BONDING CURVE',
+          })
+        } catch {
+          const pNat = tokenInfo.priceNative > 0 ? tokenInfo.priceNative : 0.0000000025
+          const est = (numAmount * 0.985) / pNat
+          return NextResponse.json({
+            success: true,
+            isGraduated: false,
+            estimatedOutput: est,
+            minReceived: est * slipMultiplier,
+            priceNative: pNat,
+            route: 'PONS V2 BONDING CURVE',
+          })
+        }
+      } else {
+        const tokensIn = parseUnits(String(amount), 18)
+        try {
+          const sim = await publicClient.simulateContract({
+            address: curveAddress,
+            abi: CURVE_ABI,
+            functionName: 'sell',
+            args: [tokensIn, 0n, DUMMY_ACCOUNT],
+            account: DUMMY_ACCOUNT,
+          })
+          const ethOut = sim.result
+          const ethOutNum = parseFloat(formatEther(ethOut))
+          const minEthOutNum = ethOutNum * slipMultiplier
 
-    // Ambil pool terbaik (likuiditas tertinggi)
-    const poolId = topPools[0].id
-    const poolAddr = poolId.replace(`${GT_NETWORK}_`, '')
-
-    const poolRes = await fetch(
-      `${GECKOTERMINAL_BASE}/networks/${GT_NETWORK}/pools/${poolAddr}`,
-      {
-        headers: { 'Accept': 'application/json;version=20230302' },
-        cache: 'no-store',
-      }
-    )
-
-    if (!poolRes.ok) {
-      return NextResponse.json({ error: 'Data pool tidak tersedia' }, { status: 400 })
-    }
-
-    const poolData = await poolRes.json()
-    const poolAttrs = poolData?.data?.attributes
-
-    if (!poolAttrs) {
-      return NextResponse.json({ error: 'Data pool kosong' }, { status: 400 })
-    }
-
-    // Tentukan apakah token kita adalah base atau quote token di pool ini
-    const baseTokenId: string = poolData?.data?.relationships?.base_token?.data?.id || ''
-    const isBase = baseTokenId.toLowerCase().includes(addrLower.toLowerCase())
-
-    // Ambil fee tier pool (pool_fee_percentage: "1" = 1% = 10000 basis points)
-    const feePct = parseFloat(poolAttrs.pool_fee_percentage || '1')
-    const feeMultiplier = 1 - feePct / 100
-
-    // Ambil harga ETH (quote token = WETH)
-    const ethPriceUsd = parseFloat(poolAttrs.quote_token_price_usd || '2500') || 2500
-
-    let amountOut = 0
-
-    if (isBuy) {
-      // Beli: ETH → Token
-      // base_token_price_native_currency = ETH per 1 Token
-      // Jadi tokens per ETH = 1 / base_token_price_native_currency
-      let priceNative = 0
-      if (isBase && poolAttrs.base_token_price_native_currency) {
-        priceNative = parseFloat(poolAttrs.base_token_price_native_currency)
-      } else if (!isBase && poolAttrs.quote_token_price_base_token) {
-        // token adalah quote, ETH adalah base — tidak umum, tapi handle
-        priceNative = 1 / parseFloat(poolAttrs.quote_token_price_base_token || '0')
-      }
-
-      if (priceNative > 0) {
-        const tokensPerEth = 1 / priceNative
-        amountOut = amount * tokensPerEth * feeMultiplier
+          return NextResponse.json({
+            success: true,
+            isGraduated: false,
+            estimatedOutput: ethOutNum,
+            minReceived: minEthOutNum,
+            estimatedOutputRaw: ethOut.toString(),
+            priceNative: tokenInfo.priceNative,
+            route: 'PONS V2 BONDING CURVE',
+          })
+        } catch {
+          const pNat = tokenInfo.priceNative > 0 ? tokenInfo.priceNative : 0.0000000025
+          const est = numAmount * pNat * 0.985
+          return NextResponse.json({
+            success: true,
+            isGraduated: false,
+            estimatedOutput: est,
+            minReceived: est * slipMultiplier,
+            priceNative: pNat,
+            route: 'PONS V2 BONDING CURVE',
+          })
+        }
       }
     } else {
-      // Jual: Token → ETH
-      let priceNative = 0
-      if (isBase && poolAttrs.base_token_price_native_currency) {
-        priceNative = parseFloat(poolAttrs.base_token_price_native_currency)
-      } else if (!isBase && poolAttrs.quote_token_price_native_currency) {
-        priceNative = parseFloat(poolAttrs.quote_token_price_native_currency)
+      // ══════════════════════════════════════════════════════════════════
+      // ── ROUTE 2: UNISWAP V4 GRADUATED LIVE MARKET PRICE ──
+      // ══════════════════════════════════════════════════════════════════
+      let livePriceNative = tokenInfo.priceNative
+
+      try {
+        const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenCa}`, {
+          headers: { 'Accept': 'application/json' },
+          next: { revalidate: 10 },
+          signal: AbortSignal.timeout(2000),
+        })
+        if (dexRes.ok) {
+          const dexData = await dexRes.json()
+          const pair = dexData.pairs?.[0]
+          const pNat = parseFloat(pair?.priceNative || '0')
+          if (pNat > 0) {
+            livePriceNative = pNat
+          }
+        }
+      } catch {
+        /* fallback */
       }
 
-      if (priceNative > 0) {
-        amountOut = amount * priceNative * feeMultiplier
+      if (!livePriceNative || livePriceNative <= 0) {
+        livePriceNative = 0.00000000588
       }
+
+      let estOut = 0
+      if (isBuy) {
+        estOut = (numAmount * 0.99) / livePriceNative
+      } else {
+        estOut = numAmount * livePriceNative * 0.99
+      }
+
+      const minRec = estOut * slipMultiplier
+
+      return NextResponse.json({
+        success: true,
+        isGraduated: true,
+        estimatedOutput: estOut,
+        minReceived: minRec,
+        priceNative: livePriceNative,
+        route: 'UNISWAP V4',
+      })
     }
-
-    if (amountOut <= 0) {
-      return NextResponse.json({ error: 'Tidak bisa menghitung estimasi output' }, { status: 400 })
-    }
-
-    const decimalsOut = isBuy ? (tokenDecimals || 18) : 18
-
-    return NextResponse.json({
-      amountOut: amountOut.toString(),
-      ethPriceUsd,
-      feePct,
-      poolAddress: poolAddr,
-      decimalsOut,
-      source: 'geckoterminal',
-    })
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Quote gagal'
+    const msg = err instanceof Error ? err.message : 'Failed to calculate quote'
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

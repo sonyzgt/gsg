@@ -1,4 +1,27 @@
 [
+  {
+    "tokenAddress": "0x8613Da764d137b1344C02fBcE39d1667d3D90cd8",
+    "curveAddress": "0x4fc6F15311DBf60fd8c310FbD5b2b426e00632e2",
+    "name": "test",
+    "symbol": "TEST",
+    "logo": "https://ipfs.io/ipfs/bafkreicwqttddakhekzua6yf4y4ojiepazsswr2ernej5kyhxu7tbwj6py",
+    "description": "test fair launched on Pons v2",
+    "deployer": "0xa960dE53788c55e76c659fDC3d0B96C55F7e1013",
+    "createdAt": 1788055142486,
+    "txHash": "0xb43e6f39f8b5293c3fc65b6eafa7e2cc14cdca7b67fdd1b95ec02e829b2b7458"
+  },
+  {
+    "tokenAddress": "0xe6F7b6B205b05062da1C8F09c9Cfa74C06AdA6D0",
+    "curveAddress": "0xB455bfF8131b5dF277c1f878c99F7b552812A123",
+    "name": "Super Token",
+    "symbol": "SUPER",
+    "logo": "https://ponscore.fun/sparkle-logo.svg",
+    "description": "Fair launch on Pons v2 via Server Wallet",
+    "deployer": "0xa960dE53788c55e76c659fDC3d0B96C55F7e1013",
+    "createdAt": 1788055103783,
+    "txHash": "0x7754353715bb143ab1d384c551c894fdf9c2c225a07db7a3aa501258cca92b06"
+  },
+  "0xf4EE5107A9D1A4dae69Ac8469D97237cD5D19C8f",
   "0xE4c16C2B707B42BC2A3CD7E1512d99D6F71390be",
   "0xb200c07316514Da2046852f25E10A8e5FF691754",
   "0xA3868C4432c6e2c20CD0Eb782997285677d3BDA5",

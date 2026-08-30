@@ -18,19 +18,31 @@ export async function GET(req: NextRequest) {
       (address && u.walletAddress.toLowerCase() === address.toLowerCase())
     )
 
-    if (!found) {
+    let walletAddress = found?.walletAddress
+    let twitterHandle = found?.twitterHandle || handle
+
+    if (!walletAddress && handle) {
+      const { getOrCreateTwitterUserWallet } = await import('@/lib/privy-server')
+      const mapping = await getOrCreateTwitterUserWallet('', handle.replace('@', ''))
+      if (mapping) {
+        walletAddress = mapping.walletAddress
+        twitterHandle = mapping.twitterUsername
+      }
+    }
+
+    if (!walletAddress) {
       return NextResponse.json({ success: false, error: 'Wallet not found' }, { status: 404 })
     }
 
-    const balanceEth = await getBotUserBalance(found.walletAddress)
+    const balanceEth = await getBotUserBalance(walletAddress)
 
     return NextResponse.json({
       success: true,
-      walletAddress: found.walletAddress,
-      twitterHandle: found.twitterHandle,
+      walletAddress,
+      twitterHandle,
       balanceEth,
-      totalLaunches: found.totalLaunches,
-      createdAt: found.createdAt,
+      totalLaunches: found?.totalLaunches ?? 0,
+      createdAt: found?.createdAt ?? Date.now(),
     })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Wallet query failed'

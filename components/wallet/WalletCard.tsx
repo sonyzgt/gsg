@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Button from '@/components/ui/Button'
 import toast from 'react-hot-toast'
 import { createPublicClient, http, erc20Abi, formatEther, encodeFunctionData, getAddress } from 'viem'
-import { useSendTransaction, useExportWallet, usePrivy, useWallets } from '@privy-io/react-auth'
+import { useSendTransaction, usePrivy, useWallets } from '@privy-io/react-auth'
 import { useTheme } from '@/context/ThemeContext'
 import SparkleIcon from '@/components/ui/SparkleIcon'
 
@@ -33,8 +33,7 @@ export default function WalletCard({ onSend, onReceive, onSwap, onClaimRoyalties
   const { address, balance, creatingWallet, createWallet, refetchBalance, embeddedWallet } = useWallet()
   const { theme } = useTheme()
   const { sendTransaction } = useSendTransaction()
-  const { exportWallet } = useExportWallet()
-  const { logout } = usePrivy()
+  const { user, logout } = usePrivy()
   const { wallets } = useWallets()
   const [copying, setCopying] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
@@ -42,6 +41,8 @@ export default function WalletCard({ onSend, onReceive, onSwap, onClaimRoyalties
   const [wethBalanceRaw, setWethBalanceRaw] = useState<bigint>(0n)
   const [wethBalanceFormatted, setWethBalanceFormatted] = useState<string>('0')
   const [unwrapping, setUnwrapping] = useState(false)
+
+
 
   const fetchWethBalance = useCallback(async () => {
     if (!address) return
@@ -203,7 +204,7 @@ export default function WalletCard({ onSend, onReceive, onSwap, onClaimRoyalties
             >
               {address}
             </code>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={copyAddress}
                 disabled={copying}
@@ -220,37 +221,30 @@ export default function WalletCard({ onSend, onReceive, onSwap, onClaimRoyalties
               >
                 EXPLORER
               </a>
-              <button
-                onClick={() => exportWallet()}
-                className="py-1.5 px-2 rounded bg-[#181b20] border-2 border-zinc-700 hover:border-amber-400 text-zinc-300 hover:text-amber-300 transition-all flex items-center justify-center gap-1.5 text-[10px] font-black shadow-[2px_2px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none cursor-pointer uppercase"
-                title="Export Private Key"
-              >
-                EXPORT
-              </button>
-              <button
-                onClick={async () => {
-                  setDisconnecting(true)
-                  try {
-                    if (Array.isArray(wallets) && wallets.length > 0) {
-                      await Promise.allSettled(
-                        wallets.map((w) => (typeof w.disconnect === 'function' ? w.disconnect() : Promise.resolve()))
-                      )
-                    }
-                    await logout()
-                    toast.success('Wallet disconnected')
-                  } catch (e) {
-                    console.warn(e)
-                  } finally {
-                    setDisconnecting(false)
-                  }
-                }}
-                disabled={disconnecting}
-                className="py-1.5 px-2 rounded bg-rose-950/40 border-2 border-rose-800 hover:border-white text-rose-300 hover:text-white transition-all flex items-center justify-center gap-1.5 text-[10px] font-black shadow-[2px_2px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none cursor-pointer uppercase"
-                title="Disconnect Wallet"
-              >
-                {disconnecting ? 'DISCONNECTING...' : 'DISCONNECT'}
-              </button>
             </div>
+            <button
+              onClick={async () => {
+                setDisconnecting(true)
+                try {
+                  if (Array.isArray(wallets) && wallets.length > 0) {
+                    await Promise.allSettled(
+                      wallets.map((w) => (typeof w.disconnect === 'function' ? w.disconnect() : Promise.resolve()))
+                    )
+                  }
+                  await logout()
+                  toast.success('Wallet disconnected')
+                } catch (e) {
+                  console.warn(e)
+                } finally {
+                  setDisconnecting(false)
+                }
+              }}
+              disabled={disconnecting}
+              className="py-1.5 px-2 w-full rounded bg-rose-950/40 border-2 border-rose-800 hover:border-white text-rose-300 hover:text-white transition-all flex items-center justify-center gap-1.5 text-[10px] font-black shadow-[2px_2px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none cursor-pointer uppercase"
+              title="Disconnect Wallet"
+            >
+              {disconnecting ? 'DISCONNECTING...' : 'DISCONNECT'}
+            </button>
           </div>
         ) : (
           <Button
@@ -264,6 +258,8 @@ export default function WalletCard({ onSend, onReceive, onSwap, onClaimRoyalties
           </Button>
         )}
       </div>
+
+
 
       {/* Action Buttons: Send, Receive, Swap */}
       <div className="grid grid-cols-3 gap-2 sm:gap-2.5">

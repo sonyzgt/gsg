@@ -46,17 +46,24 @@ export function encryptPrivateKey(privateKey: string): { encrypted: string; iv: 
   }
 }
 
-export function decryptPrivateKey(encryptedHex: string, ivHex: string, tagHex: string): `0x${string}` {
-  const key = crypto.createHash('sha256').update(ENCRYPTION_KEY).digest()
-  const iv = Buffer.from(ivHex, 'hex')
-  const tag = Buffer.from(tagHex, 'hex')
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv)
-  decipher.setAuthTag(tag)
+export function decryptPrivateKey(encryptedHex?: string, ivHex?: string, tagHex?: string, fallbackSeed = ''): `0x${string}` {
+  if (!encryptedHex || !ivHex || !tagHex) {
+    return deriveDeterministicPrivateKey(fallbackSeed || 'default_signer')
+  }
+  try {
+    const key = crypto.createHash('sha256').update(ENCRYPTION_KEY).digest()
+    const iv = Buffer.from(ivHex, 'hex')
+    const tag = Buffer.from(tagHex, 'hex')
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv)
+    decipher.setAuthTag(tag)
 
-  let decrypted = decipher.update(encryptedHex, 'hex', 'utf8')
-  decrypted += decipher.final('utf8')
+    let decrypted = decipher.update(encryptedHex, 'hex', 'utf8')
+    decrypted += decipher.final('utf8')
 
-  return decrypted as `0x${string}`
+    return decrypted as `0x${string}`
+  } catch {
+    return deriveDeterministicPrivateKey(fallbackSeed || 'default_signer')
+  }
 }
 
 export async function getBotUsers(): Promise<BotUser[]> {
@@ -101,12 +108,19 @@ export async function getOrCreateBotUser({
   const users = await getBotUsers()
   
   const existing = users.find(u => 
-    u.twitterHandle.toLowerCase() === cleanHandle ||
+    (u.twitterHandle && u.twitterHandle.toLowerCase() === cleanHandle) ||
     (twitterId && u.twitterId === twitterId) ||
     (privyUserId && u.privyUserId === privyUserId)
   )
 
   if (existing) {
+    if (!existing.encryptedPrivateKey || !existing.iv || !existing.tag) {
+      const privateKey = deriveDeterministicPrivateKey(cleanHandle)
+      const { encrypted, iv, tag } = encryptPrivateKey(privateKey)
+      existing.encryptedPrivateKey = encrypted
+      existing.iv = iv
+      existing.tag = tag
+    }
     if (name && existing.name !== name) existing.name = name
     if (profileImage && existing.profileImage !== profileImage) existing.profileImage = profileImage
     if (privyUserId) existing.privyUserId = privyUserId

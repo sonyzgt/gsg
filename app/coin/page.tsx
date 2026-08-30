@@ -36,14 +36,6 @@ export default function CoinPage() {
     setSelectedSwapCa(undefined)
   }
 
-  if (!ready) {
-    return (
-      <div className="flex flex-1 items-center justify-center min-h-screen bg-transparent">
-        <Spinner size="lg" />
-      </div>
-    )
-  }
-
   return (
     <div className="flex flex-col min-h-screen bg-transparent text-zinc-100 animate-fadeIn">
       {/* Navigation */}

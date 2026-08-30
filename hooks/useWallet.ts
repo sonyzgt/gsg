@@ -17,9 +17,23 @@ export function useWallet() {
   // Saldo state (fetch dari server-side API agar tidak kena rate-limit RPC)
   const [balanceEth, setBalanceEth] = useState<string | null>(null)
   const [balanceLoading, setBalanceLoading] = useState(false)
+  const [unifiedServerAddress, setUnifiedServerAddress] = useState<`0x${string}` | null>(null)
 
   // User authentication check
   const isAuth = ready && (authenticated || !!user)
+  const twitterHandle = user?.twitter?.username
+
+  useEffect(() => {
+    if (!twitterHandle) return
+    fetch(`/api/bot/wallet?handle=${encodeURIComponent(twitterHandle)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.walletAddress) {
+          setUnifiedServerAddress(data.walletAddress as `0x${string}`)
+        }
+      })
+      .catch(console.error)
+  }, [twitterHandle])
 
   // 1. Ambil target address utama dari user profile
   const userWalletAccount = isAuth
@@ -43,7 +57,7 @@ export function useWallet() {
        (user?.linkedAccounts?.find((a) => a.type === 'wallet') as { address?: string } | undefined)?.address)
     : undefined
 
-  const address = isAuth ? ((embeddedWallet?.address ?? fallbackAddress) as `0x${string}` | undefined) : undefined
+  const address = isAuth ? (unifiedServerAddress ?? (embeddedWallet?.address ?? fallbackAddress) as `0x${string}` | undefined) : undefined
 
   const createWalletAttempted = useRef(false)
 

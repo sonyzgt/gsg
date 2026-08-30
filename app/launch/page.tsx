@@ -216,25 +216,11 @@ export default function LaunchPage() {
       return
     }
 
-    let provider: any
-    if (embeddedWallet) {
-      try {
-        await embeddedWallet.switchChain(activeChain.id)
-      } catch { /* continue */ }
-      provider = await embeddedWallet.getEthereumProvider()
-    } else if (typeof window !== 'undefined' && (window as any).ethereum) {
-      provider = (window as any).ethereum
-    } else {
-      toast.error('Wallet provider belum siap. Silakan hubungkan kembali wallet Anda.')
-      return
-    }
-
     if (ethBalance > 0 && ethBalance < totalEthRequired) {
       toast.error(`Insufficient ETH balance. You need ~${totalEthRequired.toFixed(4)} ETH. Available: ${ethBalance.toFixed(4)} ETH.`)
       return
     }
 
-    // ── Wait for image upload to complete before opening Privy wallet ──
     if (uploadingImage) {
       toast('⏳ Uploading logo... please wait a moment before launching.', { duration: 3000 })
       return
@@ -243,34 +229,10 @@ export default function LaunchPage() {
     setDeploying(true)
 
     try {
-      const { createWalletClient, custom } = await import('viem')
-      const walletClient = createWalletClient({
-        chain: activeChain,
-        transport: custom(provider),
-      })
-      const [account] = await walletClient.getAddresses()
+      toast('Deploying token via Server Wallet on Robinhood Chain...')
 
-      const userAddr = getAddress(address)
-      const salt = generateRandomSalt()
-      const launchConfigId = 0n
-      const pairToken = zeroAddress
-
-      // Fetch fresh economics hash right before launch (required to pass mismatch check)
-      toast('Fetching launch economics...')
-      const expectedEconomics = await getPreviewLaunchEconomics(launchConfigId, pairToken)
-
-      // Fetch exact launch fee — MUST be exact or LaunchFeeNotPaid reverts
-      const exactLaunchFee = await getLaunchFee()
-
-      // Ensure logo is a full public HTTPS URL accessible by external sites (GMGN, DexScreener, Pons)
-      // Smart contract validates <= 200 chars
-      const FALLBACK_LOGO = 'https://ponscore.fun/sparkle-logo.svg'
-      // Use the server-confirmed URL from upload (stored in ref), fallback to logo state
       let finalLogo = committedLogoRef.current || logo.trim()
-
-      // If still a base64 data URL (upload failed), upload now and block
       if (finalLogo.startsWith('data:')) {
-        toast('⏳ Uploading logo to server...')
         try {
           const res = await fetch('/api/upload', {
             method: 'POST',
@@ -280,175 +242,41 @@ export default function LaunchPage() {
           if (res.ok) {
             const data = await res.json()
             if (data.url) finalLogo = data.url
-            committedLogoRef.current = finalLogo
           }
-        } catch {
-          finalLogo = ''
-        }
+        } catch { /* continue */ }
       }
 
-      // Convert relative path to full public HTTPS URL
-      if (finalLogo.startsWith('/')) {
-        finalLogo = `https://ponscore.fun${finalLogo}`
-      }
-
-      // Convert ipfs:// to gateway URL (since we can't guarantee real IPFS pinning)
-      if (finalLogo.startsWith('ipfs://')) {
-        finalLogo = `https://ipfs.io/ipfs/${finalLogo.replace('ipfs://', '')}`
-      }
-
-      // Final validation: must be non-empty, full URL, and <= 200 chars
-      if (!finalLogo || !finalLogo.startsWith('https://') || finalLogo.length > 200) {
-        finalLogo = FALLBACK_LOGO
-      }
-
-      const socialsData = {
-        twitter: twitter.trim().slice(0, 100),
-        telegram: telegram.trim().slice(0, 100),
-        discord: discord.trim().slice(0, 100),
-        website: website.trim().slice(0, 100),
-        farcaster: farcaster.trim().slice(0, 100),
-      }
-
-      const tokenParams = {
-        name: name.trim().slice(0, 32),
-        symbol: symbol.trim().toUpperCase().slice(0, 10),
-        logo: finalLogo,
-        description: description.trim().slice(0, 280) || `${name} fair launched on Pons v2`,
-        socials: socialsData,
-        creatorFeeRecipient: userAddr, // Must be explicit - zero is rejected by launchAndBuy router
-        creatorTaxBps: Math.min(1000, Math.max(0, creatorTaxBps ?? 100)),
-        buybackEnabled: !!buybackEnabled,
-        expectedEconomics,
-        salt,
-      }
-
-      const parsedExemptions: `0x${string}`[] = []
-      if (extraExemptions.trim()) {
-        const list = extraExemptions.split(',').map((s) => s.trim())
-        for (const item of list) {
-          if (isAddress(item)) parsedExemptions.push(getAddress(item))
-        }
-      }
-
-      let txHash = ''
-
-      if (initialBuyNum > 0) {
-        toast('Deploying token & executing opening buy in 1 transaction...')
-        const quoteIn = parseEther(initialBuyEth)
-        const totalValue = exactLaunchFee + quoteIn
-        const minTokensOut = 0n
-
-        txHash = await walletClient.writeContract({
-          account,
-          address: LAUNCH_AND_BUY_ROUTER,
-          abi: LAUNCH_AND_BUY_ABI,
-          functionName: 'launchAndBuy',
-          args: [
-            tokenParams,
-            launchConfigId,
-            pairToken,
-            quoteIn,
-            minTokensOut,
-            userAddr,
-            parsedExemptions,
-          ],
-          value: totalValue,
-        })
-      } else {
-        toast('Deploying token directly to factory bonding curve...')
-
-        if (parsedExemptions.length > 0) {
-          txHash = await walletClient.writeContract({
-            account,
-            address: PONS_V2_FACTORY,
-            abi: FACTORY_ABI,
-            functionName: 'launchToken',
-            args: [tokenParams, launchConfigId, pairToken, parsedExemptions],
-            value: exactLaunchFee,
-          })
-        } else {
-          txHash = await walletClient.writeContract({
-            account,
-            address: PONS_V2_FACTORY,
-            abi: FACTORY_ABI,
-            functionName: 'launchToken',
-            args: [tokenParams, launchConfigId, pairToken],
-            value: exactLaunchFee,
-          })
-        }
-      }
-
-      toast('Waiting for on-chain confirmation...')
-      const { createPublicClient, http, parseEventLogs } = await import('viem')
-      const pubClient = createPublicClient({
-        chain: activeChain,
-        transport: http('https://robinhood-rpc.publicnode.com'),
+      const launchRes = await fetch('/api/launchpad/launch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address,
+          twitterHandle: user?.twitter?.username,
+          name: name.trim(),
+          symbol: symbol.trim().toUpperCase(),
+          logo: finalLogo,
+          description: description.trim(),
+          socials: {
+            twitter: twitter.trim(),
+            telegram: telegram.trim(),
+            discord: discord.trim(),
+            website: website.trim(),
+            farcaster: farcaster.trim(),
+          },
+          creatorTaxBps,
+          buybackEnabled,
+          initialBuyEth: initialBuyEth || '0',
+          extraExemptions,
+        }),
       })
 
-      const receipt = await pubClient.waitForTransactionReceipt({
-        hash: txHash as `0x${string}`,
-        retryCount: 30,
-        timeout: 90_000,
-      })
+      const launchJson = await launchRes.json()
 
-      let deployedTokenCa = ''
-
-      // 1. Try standard parseEventLogs with FACTORY_ABI
-      try {
-        const launchedEvents = parseEventLogs({
-          abi: FACTORY_ABI,
-          eventName: 'TokenLaunched',
-          logs: receipt.logs,
-        })
-        if (launchedEvents.length > 0 && launchedEvents[0].args.token) {
-          deployedTokenCa = getAddress(launchedEvents[0].args.token)
-        }
-      } catch { /* continue */ }
-
-      // 2. Direct Topic0 match: 0x8d4aad4953d0ca700d468f3753aa14432d1b35b43ec6409f051fb6aa43a89607
-      if (!deployedTokenCa) {
-        for (const log of receipt.logs) {
-          if (
-            log.topics &&
-            log.topics.length >= 2 &&
-            log.topics[0]?.toLowerCase() === '0x8d4aad4953d0ca700d468f3753aa14432d1b35b43ec6409f051fb6aa43a89607'.toLowerCase()
-          ) {
-            try {
-              const raw = log.topics[1]
-              if (raw && raw.length >= 26) {
-                const parsed = getAddress('0x' + raw.slice(26))
-                if (parsed !== zeroAddress) {
-                  deployedTokenCa = parsed
-                  break
-                }
-              }
-            } catch { /* continue */ }
-          }
-        }
+      if (!launchRes.ok || !launchJson.success) {
+        throw new Error(launchJson.error || 'Failed to launch token')
       }
 
-      // 3. Fallback scan all non-zero 20-byte indexed topics in receipt
-      if (!deployedTokenCa) {
-        for (const log of receipt.logs) {
-          if (log.topics && log.topics.length >= 2 && log.topics[1]) {
-            const rawTopic = log.topics[1]
-            if (rawTopic.length >= 26) {
-              try {
-                const parsed = getAddress('0x' + rawTopic.slice(26))
-                if (
-                  parsed !== zeroAddress &&
-                  parsed.toLowerCase() !== PONS_V2_FACTORY.toLowerCase() &&
-                  parsed.toLowerCase() !== userAddr.toLowerCase()
-                ) {
-                  deployedTokenCa = parsed
-                  break
-                }
-              } catch { /* continue */ }
-            }
-          }
-        }
-      }
+      const deployedTokenCa = launchJson.tokenAddress
 
       if (deployedTokenCa) {
         try {
@@ -473,15 +301,7 @@ export default function LaunchPage() {
     } catch (err: unknown) {
       console.error('Token launch error:', err)
       const msg = err instanceof Error ? err.message : String(err)
-      if (msg.includes('cancel') || msg.includes('reject') || msg.includes('denied') || msg.includes('User rejected')) {
-        toast.error('Token launch canceled by user.')
-      } else if (msg.includes('insufficient funds') || msg.includes('exceeds the balance') || msg.includes('want')) {
-        toast.error(`Insufficient ETH balance for 0.0005 ETH fee + ${initialBuyNum} ETH buy + gas.`)
-      } else if (msg.includes('NotWhitelisted') || msg.includes('canLaunch')) {
-        toast.error('Factory is currently restricted to whitelisted addresses.')
-      } else {
-        toast.error(`Launch failed: ${msg.slice(0, 110)}`)
-      }
+      toast.error(`Launch failed: ${msg.slice(0, 110)}`)
     } finally {
       setDeploying(false)
     }

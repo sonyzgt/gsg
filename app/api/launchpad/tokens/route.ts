@@ -18,7 +18,14 @@ async function getStoredTokens(): Promise<string[]> {
     const raw = await readFile(REGISTRY_FILE, 'utf-8')
     const parsed = JSON.parse(raw)
     if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed
+      const addresses: string[] = []
+      for (const item of parsed) {
+        const addr = typeof item === 'string' ? item : item?.tokenAddress || item?.address
+        if (addr && isAddress(addr)) {
+          addresses.push(getAddress(addr))
+        }
+      }
+      return Array.from(new Set(addresses))
     }
   } catch {
     try {
@@ -85,7 +92,7 @@ async function refreshTokensInBackground() {
       if (found) tokenInfos.push(found)
     }
 
-    // Always update in-memory and disk cache (even when array is empty after deletion)
+    // Always update in-memory and disk cache
     if (g.__tokensCache) {
       g.__tokensCache.data = tokenInfos
       g.__tokensCache.lastFetch = Date.now()
@@ -124,9 +131,9 @@ export async function GET() {
     const now = Date.now()
     const cached = await getCachedTokens()
 
-    // If cache is present, return IMMEDIATELY (< 5ms) and revalidate in background if > 4s old
+    // If cache is present, return IMMEDIATELY (< 5ms) and revalidate in background if > 2s old
     if (cached.length > 0) {
-      if (now - (g.__tokensCache?.lastFetch || 0) > 4000) {
+      if (now - (g.__tokensCache?.lastFetch || 0) > 2000) {
         refreshTokensInBackground().catch(() => {})
       }
       return NextResponse.json({
@@ -169,6 +176,12 @@ export async function POST(req: NextRequest) {
       stored.unshift(clean)
       await saveStoredTokens(stored)
     }
+
+    // Invalidate cache immediately so new token appears instantly
+    if (g.__tokensCache) {
+      g.__tokensCache.lastFetch = 0
+    }
+    await refreshTokensInBackground()
 
     const info = await getPonsTokenInfo(clean)
 

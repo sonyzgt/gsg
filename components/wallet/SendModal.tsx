@@ -27,35 +27,63 @@ export default function SendModal({ open, onClose }: SendModalProps) {
   const hasEnoughBalance =
     balance && parseFloat(amount) <= parseFloat(balance.formatted)
 
-  const canSend = isValidAddress && isValidAmount && hasEnoughBalance && !sending && !!address && !!embeddedWallet
+  const canSend = isValidAddress && isValidAmount && hasEnoughBalance && !sending && !!address
 
   async function handleSend() {
-    if (!canSend || !embeddedWallet || !address) return
+    if (!canSend || !address) return
     setSending(true)
 
     try {
-      await embeddedWallet.switchChain(activeChain.id)
-      const provider = await embeddedWallet.getEthereumProvider()
-      const walletClient = createWalletClient({
-        chain: activeChain,
-        transport: custom(provider),
-      })
-      const [account] = await walletClient.getAddresses()
-
-      const targetAddress = getAddress(to.trim())
-      const valueInWei = parseEther(amount.trim())
-
       toast('Sending ETH transaction...')
 
-      await walletClient.sendTransaction({
-        account,
-        to: targetAddress,
-        value: valueInWei,
+      // 1. Try server wallet transfer
+      const res = await fetch('/api/bot/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address,
+          destinationAddress: to.trim(),
+          amountEth: amount.trim(),
+        }),
       })
 
-      toast.success('ETH successfully sent!')
-      await refetchBalance()
-      handleClose()
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          toast.success('ETH successfully sent!')
+          await refetchBalance()
+          handleClose()
+          return
+        }
+      }
+
+      // 2. Fallback to client embedded wallet if available
+      if (embeddedWallet) {
+        await embeddedWallet.switchChain(activeChain.id)
+        const provider = await embeddedWallet.getEthereumProvider()
+        const walletClient = createWalletClient({
+          chain: activeChain,
+          transport: custom(provider),
+        })
+        const [account] = await walletClient.getAddresses()
+
+        const targetAddress = getAddress(to.trim())
+        const valueInWei = parseEther(amount.trim())
+
+        await walletClient.sendTransaction({
+          account,
+          to: targetAddress,
+          value: valueInWei,
+        })
+
+        toast.success('ETH successfully sent!')
+        await refetchBalance()
+        handleClose()
+        return
+      }
+
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(errData.error || 'Transaction failed')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Transaction failed'
       if (

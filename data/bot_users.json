@@ -1,0 +1,79 @@
+[
+  {
+    "twitterId": "2093643002115727360",
+    "twitterHandle": "ponscore",
+    "name": "ponscore",
+    "ponscoreUserId": "user_2093643002115727360",
+    "privyUserId": "did:privy:h5oi4j92yefo313w4nsqjz7w",
+    "privyWalletAddress": "0xa960dE53788c55e76c659fDC3d0B96C55F7e1013",
+    "walletAddress": "0xa960dE53788c55e76c659fDC3d0B96C55F7e1013",
+    "walletId": "h5oi4j92yefo313w4nsqjz7w",
+    "createdAt": 1788051025373
+  },
+  {
+    "twitterId": "2002266665632100352",
+    "twitterHandle": "todyresearch",
+    "name": "todyresearch",
+    "ponscoreUserId": "user_2002266665632100352",
+    "privyUserId": "did:privy:ltwyx9gf08e36qi5r1hn71w1",
+    "privyWalletAddress": "0xC38843876A894d019fC738d1fD5581850De09f65",
+    "walletAddress": "0xC38843876A894d019fC738d1fD5581850De09f65",
+    "walletId": "ltwyx9gf08e36qi5r1hn71w1",
+    "createdAt": 1788048495603
+  },
+  {
+    "twitterId": "1350124874782674950",
+    "twitterHandle": "abdulqoyum01",
+    "name": "abdulqoyum01",
+    "ponscoreUserId": "user_1350124874782674950",
+    "privyUserId": "did:privy:ngsede7gc6q84bqs5e4mcc7o",
+    "privyWalletAddress": "0x129f3FB4cFd8C9908A21c6ce5882BD903ce61147",
+    "walletAddress": "0x129f3FB4cFd8C9908A21c6ce5882BD903ce61147",
+    "walletId": "ngsede7gc6q84bqs5e4mcc7o",
+    "createdAt": 1788049137560
+  },
+  {
+    "twitterId": "2091288746343669760",
+    "twitterHandle": "nejithethird",
+    "name": "nejithethird",
+    "ponscoreUserId": "user_2091288746343669760",
+    "privyUserId": "did:privy:ym1xec8gmjzte0uw84i5u1ll",
+    "privyWalletAddress": "0x38109f9A9315d7E41236A9AeB1666C5C953d5D52",
+    "walletAddress": "0x38109f9A9315d7E41236A9AeB1666C5C953d5D52",
+    "walletId": "ym1xec8gmjzte0uw84i5u1ll",
+    "createdAt": 1788049299655
+  },
+  {
+    "twitterId": "827420548175114240",
+    "twitterHandle": "thebdn",
+    "name": "thebdn",
+    "ponscoreUserId": "user_827420548175114240",
+    "privyUserId": "did:privy:fuld6o7354b5xvuf4tidf5qh",
+    "privyWalletAddress": "0x7B102f56cB83add7F302D190152557Edb0143e7A",
+    "walletAddress": "0x7B102f56cB83add7F302D190152557Edb0143e7A",
+    "walletId": "fuld6o7354b5xvuf4tidf5qh",
+    "createdAt": 1788049368827
+  },
+  {
+    "twitterId": "tw_marcsolym",
+    "twitterHandle": "marcsolym",
+    "name": "marcsolym",
+    "ponscoreUserId": "user_tw_marcsolym",
+    "privyUserId": "did:privy:nhrsdprl3t0rvbk8gta4uw0g",
+    "privyWalletAddress": "0xa8A1087aAE6c07ee899D7E5c9E8B0bDeBbB85E86",
+    "walletAddress": "0xa8A1087aAE6c07ee899D7E5c9E8B0bDeBbB85E86",
+    "walletId": "nhrsdprl3t0rvbk8gta4uw0g",
+    "createdAt": 1788051732708
+  },
+  {
+    "twitterId": "tw_",
+    "twitterHandle": "",
+    "name": "",
+    "ponscoreUserId": "user_tw_",
+    "privyUserId": "did:privy:man64tcsp2n1swck5zq2305t",
+    "privyWalletAddress": "0x95aecaFB46716153C0586DA35ED0d5b177399CD4",
+    "walletAddress": "0x95aecaFB46716153C0586DA35ED0d5b177399CD4",
+    "walletId": "man64tcsp2n1swck5zq2305t",
+    "createdAt": 1788052395949
+  }
+]

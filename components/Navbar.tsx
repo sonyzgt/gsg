@@ -67,6 +67,10 @@ export default function Navbar({
     onError: (err) => {
       console.error('Login error:', err)
       setLoggingIn(false)
+      // Fallback to standard login modal if OAuth redirect has issue on localhost
+      if (typeof login === 'function') {
+        login()
+      }
     },
   })
 
@@ -74,10 +78,17 @@ export default function Navbar({
     try {
       setLoggingIn(true)
       setLoginMenuOpen(false)
-      await initOAuth({ provider })
+      if (typeof initOAuth === 'function') {
+        await initOAuth({ provider })
+      } else if (typeof login === 'function') {
+        login()
+      }
     } catch (err) {
       console.error('Login error:', err)
       setLoggingIn(false)
+      if (typeof login === 'function') {
+        login()
+      }
     }
   }
 
@@ -130,11 +141,6 @@ export default function Navbar({
       label: 'WALLET',
       href: '/wallet',
       code: '03',
-    },
-    {
-      label: 'X BOT',
-      href: '/bot',
-      code: '04',
     },
   ]
 
@@ -338,15 +344,6 @@ export default function Navbar({
                     >
                       <span>[03]</span>
                       <span>WALLET & PORTFOLIO</span>
-                    </Link>
-
-                    <Link
-                      href="/bot"
-                      onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-2.5 py-2 rounded text-xs font-bold text-sky-400 hover:text-black hover:bg-sky-400 transition-all cursor-pointer"
-                    >
-                      <span>[04]</span>
-                      <span>TWITTER (X) BOT</span>
                     </Link>
 
                     <div className="my-1 border-t border-zinc-800" />

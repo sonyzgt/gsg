@@ -48,36 +48,60 @@ export default function ClaimFeesModal({ open, onClose }: ClaimFeesModalProps) {
   const claimableEth = parseFloat(formatEther(claimableWei))
 
   async function handleClaim() {
-    if (!address || !embeddedWallet || claimableWei === 0n) return
+    if (!address || claimableWei === 0n) return
     setClaiming(true)
 
     try {
-      await embeddedWallet.switchChain(activeChain.id)
-      const provider = await embeddedWallet.getEthereumProvider()
-      const { createWalletClient, custom } = await import('viem')
-      const walletClient = createWalletClient({
-        chain: activeChain,
-        transport: custom(provider),
-      })
-      const [account] = await walletClient.getAddresses()
-
-      const calldata = encodeFunctionData({
-        abi: FEE_ESCROW_ABI,
-        functionName: 'claim',
+      // 1. Try server-side claim first for Privy Server Wallets
+      const res = await fetch('/api/launchpad/claim-fees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address }),
       })
 
-      toast('Submitting claim from Fee Escrow...')
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          toast.success(`Successfully claimed ${claimableEth.toFixed(5)} ETH into your wallet!`)
+          await Promise.all([fetchBalance(), refetchBalance()])
+          onClose()
+          return
+        }
+      }
 
-      await walletClient.sendTransaction({
-        account,
-        to: FEE_ESCROW,
-        data: calldata,
-        gas: 200000n,
-      })
+      // 2. If server-side is not applicable, try embedded wallet signing
+      if (embeddedWallet) {
+        await embeddedWallet.switchChain(activeChain.id)
+        const provider = await embeddedWallet.getEthereumProvider()
+        const { createWalletClient, custom } = await import('viem')
+        const walletClient = createWalletClient({
+          chain: activeChain,
+          transport: custom(provider),
+        })
+        const [account] = await walletClient.getAddresses()
 
-      toast.success(`Successfully claimed ${claimableEth.toFixed(5)} ETH into your wallet!`)
-      await Promise.all([fetchBalance(), refetchBalance()])
-      onClose()
+        const calldata = encodeFunctionData({
+          abi: FEE_ESCROW_ABI,
+          functionName: 'claim',
+        })
+
+        toast('Submitting claim from Fee Escrow...')
+
+        await walletClient.sendTransaction({
+          account,
+          to: FEE_ESCROW,
+          data: calldata,
+          gas: 200000n,
+        })
+
+        toast.success(`Successfully claimed ${claimableEth.toFixed(5)} ETH into your wallet!`)
+        await Promise.all([fetchBalance(), refetchBalance()])
+        onClose()
+        return
+      }
+
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(errData.error || 'Claim failed')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Claim failed'
       if (msg.includes('cancel') || msg.includes('reject')) {

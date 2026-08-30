@@ -84,15 +84,32 @@ function buildV4SwapCalldata({
     ]
   )
 
-  // Action 1: SETTLE_ALL (0x0c) -> (currency, maxAmount)
-  const inputCurrency = zeroForOne ? currency0 : currency1
-  const settleParam = encodeAbiParameters(
-    [
-      { name: 'currency', type: 'address' },
-      { name: 'maxAmount', type: 'uint256' },
-    ],
-    [inputCurrency, BigInt(amountIn)]
-  )
+  // Action 1: SETTLE / SETTLE_ALL
+  // For BUY: Action 0x0c (SETTLE_ALL) with Native ETH from msg.value
+  // For SELL: Action 0x0b (SETTLE) with ERC20 token and payerIsUser = true (pulled via Permit2)
+  let actions: `0x${string}` = '0x060c0f'
+  let settleParam: `0x${string}`
+
+  if (isBuy) {
+    actions = '0x060c0f'
+    settleParam = encodeAbiParameters(
+      [
+        { name: 'currency', type: 'address' },
+        { name: 'maxAmount', type: 'uint256' },
+      ],
+      [currency0, BigInt(amountIn)]
+    )
+  } else {
+    actions = '0x060b0f'
+    settleParam = encodeAbiParameters(
+      [
+        { name: 'currency', type: 'address' },
+        { name: 'amount', type: 'uint256' },
+        { name: 'payerIsUser', type: 'bool' },
+      ],
+      [currency1, BigInt(amountIn), true]
+    )
+  }
 
   // Action 2: TAKE_ALL (0x0f) -> (currency, minAmount)
   const outputCurrency = zeroForOne ? currency1 : currency0
@@ -106,7 +123,6 @@ function buildV4SwapCalldata({
 
   // Universal Router Command 0x10 (V4_SWAP)
   const commands = '0x10'
-  const actions = '0x060c0f'
 
   const v4Input = encodeAbiParameters(
     [
