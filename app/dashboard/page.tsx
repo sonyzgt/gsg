@@ -42,6 +42,12 @@ interface LeaderboardItem {
 
 interface RewardPotData {
   potAddress: string | null
+  tokenAddress: string
+  tokenSymbol: string
+  tokenName: string
+  balanceTokens: number
+  balanceTokensFormatted: string
+  tokenPriceUsd: number
   balanceEth: number
   balanceEthFormatted: string
   balanceUsd: number
@@ -144,7 +150,7 @@ function DashboardContent() {
 
   // Estimated share of reward pot
   const userShareRatio = totalSystemPoints > 0 ? totalPts / totalSystemPoints : 0
-  const userEstimatedEthReward = (potData?.balanceEth || 0) * userShareRatio
+  const userEstimatedTokenReward = (potData?.balanceTokens || 0) * userShareRatio
   const userEstimatedUsdReward = (potData?.balanceUsd || 0) * userShareRatio
 
   function copyPotAddress(addr: string) {
@@ -177,7 +183,7 @@ function DashboardContent() {
                   <SparkleIcon size={24} className="text-[var(--theme-color)]" />
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-400 max-w-xl font-sans">
-                  Deploy tokens and execute Buy/Sell trades &gt;$100 to earn PONS Points. Every point increases your share of the on-chain Season 1 Reward Prize Pot on Robinhood Chain.
+                  Deploy tokens and execute Buy/Sell trades &gt;$100 to earn PONS Points. Every point increases your share of the on-chain Season 1 $PONSCORE Reward Prize Pot on Robinhood Chain.
                 </p>
               </div>
 
@@ -217,11 +223,23 @@ function DashboardContent() {
 
                 <div className="flex items-baseline gap-3 flex-wrap">
                   <span className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight">
-                    {potData?.balanceEthFormatted || '0.0000'} ETH
+                    {potData?.balanceTokensFormatted || '0'} ${potData?.tokenSymbol || 'PONSCORE'}
                   </span>
                   <span className="text-sm sm:text-base font-bold text-zinc-400">
                     (~${(potData?.balanceUsd || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} USD)
                   </span>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-zinc-400 mt-0.5 flex-wrap">
+                  <span className="text-emerald-400 font-bold">REWARD TOKEN:</span>
+                  <Link
+                    href={`/token/${potData?.tokenAddress || '0xf3734609cAB98Cb4c23Ce7ff6D3F9bF7AeB23ce9'}`}
+                    className="text-[var(--theme-color)] font-bold hover:underline"
+                  >
+                    ${potData?.tokenSymbol || 'PONSCORE'} (0xf373...3ce9) ↗
+                  </Link>
+                  <span className="text-zinc-600">•</span>
+                  <span>+{potData?.balanceEthFormatted || '0.0000'} ETH in pot</span>
                 </div>
 
                 {potData?.potAddress ? (
@@ -265,12 +283,12 @@ function DashboardContent() {
                     {(userShareRatio * 100).toFixed(1)}%
                   </span>
                   <span className="text-xs font-black text-white">
-                    ~{userEstimatedEthReward.toFixed(4)} ETH
+                    ~{userEstimatedTokenReward.toLocaleString(undefined, { maximumFractionDigits: 0 })} ${potData?.tokenSymbol || 'PONSCORE'}
                   </span>
                 </div>
                 <span className="text-[11px] text-zinc-500 font-sans">
                   {myTwitterUsername
-                    ? `Based on ${totalPts} PTS out of ${totalSystemPoints} total points.`
+                    ? `Based on ${totalPts} PTS out of ${totalSystemPoints} total points (~$${userEstimatedUsdReward.toFixed(2)} USD).`
                     : 'Log in with Twitter to calculate your reward share.'}
                 </span>
               </div>

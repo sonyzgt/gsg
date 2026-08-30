@@ -1,9 +1,17 @@
-import { createPublicClient, http, formatEther, isAddress, getAddress } from 'viem'
+import { createPublicClient, http, formatEther, formatUnits, isAddress, getAddress, erc20Abi } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { robinhoodChain } from '@/lib/chains'
 
+export const REWARD_TOKEN_ADDRESS = '0xf3734609cAB98Cb4c23Ce7ff6D3F9bF7AeB23ce9' as `0x${string}`
+
 export interface RewardPotInfo {
   potAddress: `0x${string}` | null
+  tokenAddress: `0x${string}`
+  tokenSymbol: string
+  tokenName: string
+  balanceTokens: number
+  balanceTokensFormatted: string
+  tokenPriceUsd: number
   balanceEth: number
   balanceEthFormatted: string
   balanceUsd: number
@@ -46,7 +54,7 @@ export function getRewardPotAddress(): `0x${string}` | null {
 }
 
 /**
- * Queries real-time on-chain balance of the Prize Pot wallet on Robinhood Chain
+ * Queries real-time on-chain balance of $PONSCORE tokens and ETH in the Prize Pot wallet
  */
 export async function getRewardPotInfo(): Promise<RewardPotInfo> {
   const potAddress = getRewardPotAddress()
@@ -54,6 +62,12 @@ export async function getRewardPotInfo(): Promise<RewardPotInfo> {
   if (!potAddress) {
     return {
       potAddress: null,
+      tokenAddress: REWARD_TOKEN_ADDRESS,
+      tokenSymbol: 'PONSCORE',
+      tokenName: 'ponscore',
+      balanceTokens: 0,
+      balanceTokensFormatted: '0',
+      tokenPriceUsd: 0.000023,
       balanceEth: 0,
       balanceEthFormatted: '0.0000',
       balanceUsd: 0,
@@ -62,21 +76,77 @@ export async function getRewardPotInfo(): Promise<RewardPotInfo> {
   }
 
   try {
-    const rawBalance = await client.getBalance({ address: potAddress })
-    const ethNum = parseFloat(formatEther(rawBalance))
-    const usdNum = ethNum * DEFAULT_ETH_USD
+    const [rawEthBal, rawTokenBal, tokenDecimals, name, symbol] = await Promise.all([
+      client.getBalance({ address: potAddress }).catch(() => 0n),
+      client.readContract({
+        address: REWARD_TOKEN_ADDRESS,
+        abi: erc20Abi,
+        functionName: 'balanceOf',
+        args: [potAddress],
+      }).catch(() => 0n),
+      client.readContract({
+        address: REWARD_TOKEN_ADDRESS,
+        abi: erc20Abi,
+        functionName: 'decimals',
+      }).catch(() => 18),
+      client.readContract({
+        address: REWARD_TOKEN_ADDRESS,
+        abi: erc20Abi,
+        functionName: 'name',
+      }).catch(() => 'ponscore'),
+      client.readContract({
+        address: REWARD_TOKEN_ADDRESS,
+        abi: erc20Abi,
+        functionName: 'symbol',
+      }).catch(() => 'PONSCORE'),
+    ])
+
+    const tokenNum = parseFloat(formatUnits(rawTokenBal, Number(tokenDecimals)))
+    const ethNum = parseFloat(formatEther(rawEthBal))
+
+    // Fetch live DexScreener price for PONSCORE
+    let tokenPriceUsd = 0.000023
+    try {
+      const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${REWARD_TOKEN_ADDRESS}`, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(2000),
+      })
+      if (dexRes.ok) {
+        const dexData = await dexRes.json()
+        const mainPair = dexData?.pairs?.[0]
+        if (mainPair && parseFloat(mainPair.priceUsd) > 0) {
+          tokenPriceUsd = parseFloat(mainPair.priceUsd)
+        }
+      }
+    } catch {
+      /* fallback */
+    }
+
+    const totalUsdValue = (tokenNum * tokenPriceUsd) + (ethNum * DEFAULT_ETH_USD)
 
     return {
       potAddress,
+      tokenAddress: REWARD_TOKEN_ADDRESS,
+      tokenSymbol: symbol || 'PONSCORE',
+      tokenName: name || 'ponscore',
+      balanceTokens: tokenNum,
+      balanceTokensFormatted: tokenNum.toLocaleString(undefined, { maximumFractionDigits: 2 }),
+      tokenPriceUsd,
       balanceEth: ethNum,
-      balanceEthFormatted: ethNum >= 1 ? ethNum.toLocaleString(undefined, { maximumFractionDigits: 4 }) : ethNum.toFixed(4),
-      balanceUsd: usdNum,
+      balanceEthFormatted: ethNum.toFixed(4),
+      balanceUsd: totalUsdValue,
       isConfigured: true,
     }
   } catch (err) {
     console.error('[Reward Pot] Error fetching pot balance:', err)
     return {
       potAddress,
+      tokenAddress: REWARD_TOKEN_ADDRESS,
+      tokenSymbol: 'PONSCORE',
+      tokenName: 'ponscore',
+      balanceTokens: 0,
+      balanceTokensFormatted: '0',
+      tokenPriceUsd: 0.000023,
       balanceEth: 0,
       balanceEthFormatted: '0.0000',
       balanceUsd: 0,
