@@ -122,6 +122,22 @@ export default function Navbar({
   const rawAddr = address || user?.wallet?.address || walletAccount?.address
   const shortAddr = rawAddr ? `${rawAddr.slice(0, 6)}...${rawAddr.slice(-4)}` : undefined
 
+  const [navPoints, setNavPoints] = useState<number | null>(null)
+
+  useEffect(() => {
+    const handle = twitterAccount?.username || (address ? address : '')
+    if (handle) {
+      fetch(`/api/points?user=${encodeURIComponent(handle)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d?.success && typeof d.data?.totalPoints === 'number') {
+            setNavPoints(d.data.totalPoints)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [twitterAccount?.username, address, pathname])
+
   const displayName = twitterAccount?.username
     ? `@${twitterAccount.username}`
     : googleAccount?.name ?? googleAccount?.email?.split('@')[0] ?? user?.email?.address?.split('@')[0] ?? shortAddr ?? 'CONNECTED'
@@ -138,14 +154,19 @@ export default function Navbar({
       code: '02',
     },
     {
+      label: 'POINTS',
+      href: '/dashboard',
+      code: '03',
+    },
+    {
       label: 'WALLET',
       href: '/wallet',
-      code: '03',
+      code: '04',
     },
     {
       label: 'AI CHAT',
       href: '/chat',
-      code: '04',
+      code: '05',
     },
   ]
 
@@ -263,6 +284,18 @@ export default function Navbar({
             )}
           </div>
 
+          {/* Points Pill Chip (Desktop & Tablet) */}
+          {isConnected && (
+            <Link
+              href="/dashboard"
+              title="View Points & Leaderboard"
+              className="hidden sm:flex items-center gap-1.5 bg-[#121519] border-2 border-zinc-700 hover:border-white px-2.5 py-1.5 rounded-md text-xs font-mono font-bold text-[var(--theme-color)] transition-all cursor-pointer shadow-[2px_2px_0px_0px_#000000] active:translate-x-0.5 active:translate-y-0.5"
+            >
+              <SparkleIcon size={14} className="text-[var(--theme-color)]" />
+              <span>{(navPoints ?? 0).toLocaleString()} PTS</span>
+            </Link>
+          )}
+
           {/* Profile / Account Dropdown Trigger Button */}
           {isConnected ? (
             <div className="relative">
@@ -343,11 +376,20 @@ export default function Navbar({
                     </Link>
 
                     <Link
-                      href="/wallet"
+                      href="/dashboard"
                       onClick={() => setDropdownOpen(false)}
                       className="flex items-center gap-2.5 px-2.5 py-2 rounded text-xs font-bold text-zinc-200 hover:text-black hover:bg-[var(--theme-color)] transition-all cursor-pointer"
                     >
                       <span>[03]</span>
+                      <span>POINTS & DASHBOARD</span>
+                    </Link>
+
+                    <Link
+                      href="/wallet"
+                      onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded text-xs font-bold text-zinc-200 hover:text-black hover:bg-[var(--theme-color)] transition-all cursor-pointer"
+                    >
+                      <span>[04]</span>
                       <span>WALLET & PORTFOLIO</span>
                     </Link>
 
@@ -356,7 +398,7 @@ export default function Navbar({
                       onClick={() => setDropdownOpen(false)}
                       className="flex items-center gap-2.5 px-2.5 py-2 rounded text-xs font-bold text-zinc-200 hover:text-black hover:bg-[var(--theme-color)] transition-all cursor-pointer"
                     >
-                      <span>[04]</span>
+                      <span>[05]</span>
                       <span>AI CHAT & AGENT</span>
                     </Link>
 

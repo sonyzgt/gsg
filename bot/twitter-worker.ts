@@ -770,11 +770,29 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
     }
   }
 
+  let pointsAwarded = 0
+  try {
+    const { awardPoints } = await import('@/lib/points-system')
+    const ptRes = await awardPoints({
+      twitterHandle: payload.authorHandle,
+      walletAddress: activeWallet,
+      points: 100,
+      type: 'TOKEN_DEPLOY',
+      description: `Deployed token $${tokenSymbol}`,
+      tokenAddress: deployedTokenCa,
+      tokenSymbol,
+      txHash,
+    })
+    pointsAwarded = ptRes.pointsAwarded
+  } catch (ptErr) {
+    console.error('[Twitter Bot] Error awarding points:', ptErr)
+  }
+
   await markTweetProcessed(payload.tweetId)
 
-  const shortCa = deployedTokenCa ? `${deployedTokenCa.slice(0, 6)}...${deployedTokenCa.slice(-4)}` : ''
+  const pointsText = pointsAwarded > 0 ? `\nPoints: +${pointsAwarded} PTS (https://ponscore.app/dashboard)` : ''
   const responseMsg = deployedTokenCa
-    ? `$${tokenSymbol} is live on Robinhood Chain.\n\nCreator: @${payload.authorHandle}\nTrade: https://ponscore.app/token/${deployedTokenCa}\nExplorer: https://robinhoodchain.blockscout.com/tx/${txHash}`
+    ? `$${tokenSymbol} is live on Robinhood Chain.\n\nCreator: @${payload.authorHandle}${pointsText}\nTrade: https://ponscore.app/token/${deployedTokenCa}\nExplorer: https://robinhoodchain.blockscout.com/tx/${txHash}`
     : `$${tokenSymbol} launch submitted on Robinhood Chain.\n\nTX: https://robinhoodchain.blockscout.com/tx/${txHash}`
 
   return {

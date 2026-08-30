@@ -142,6 +142,23 @@ export async function POST(req: NextRequest) {
       }
 
       // B. If user asked to SELL / SELL ALL without specifying a contract address
+      // Handle POINTS_QUERY
+    if (action?.intent === 'POINTS_QUERY') {
+      try {
+        const { getUserPoints } = await import('@/lib/points-system')
+        const handle = userTwitter || activeUserAddress || ''
+        const ptData = handle ? await getUserPoints(handle) : null
+        const total = ptData?.totalPoints || 0
+        const historyCount = ptData?.history?.length || 0
+
+        replyText = userTwitter
+          ? `You have ${total.toLocaleString()} PONS Points across ${historyCount} recorded activities. Points are awarded for launching tokens via Twitter (+100 PTS). View your full history and global rank at https://ponscore.app/dashboard`
+          : `Connect your Twitter account on PONSCORE to track your PONS Points. You earn +100 Points for every token launched using your Twitter account. Visit https://ponscore.app/dashboard for the live leaderboard.`
+      } catch {
+        replyText = `PONS Points Program: Earn +100 Points for every token launched via your Twitter account or @agent_ponscore. View leaderboard at https://ponscore.app/dashboard`
+      }
+    }
+
       if (action && action.intent === 'SELL' && !action.tokenAddress) {
         if (action.tokenSymbol) {
           // Find by symbol in user's holdings first

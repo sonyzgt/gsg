@@ -7,6 +7,7 @@ export type ChatIntentType =
   | 'SELL'
   | 'LAUNCH'
   | 'WALLET_QUERY'
+  | 'POINTS_QUERY'
   | 'TOKEN_INFO'
   | 'GENERAL'
 
@@ -80,13 +81,29 @@ export function parseTradingCommandDeterministic(text: string): ParsedActionData
       clean
     )
 
-  // 7. Check for WALLET QUERY / SALDO / BALANCE
-  const isWalletQuery =
-    /\b(balance|saldo|wallet|address|dompet|my\s+wallet|check\s+balance|cek\s+saldo)\b/i.test(
-      clean
-    ) && !tokenAddress && !tokenSymbol
+  // 7. Check for POINTS / LEADERBOARD
+  const isPointsIntent = /\b(point|points|poin|leaderboard|my points|check points|peringkat)\b/i.test(clean)
+  if (isPointsIntent && !isBuyIntent && !isSellIntent && !isLaunchIntent) {
+    return {
+      intent: 'POINTS_QUERY',
+      confidence: 1.0,
+    }
+  }
 
-  // 8. Check for TOKEN INFO / PRICE / STATUS
+  // 8. Check for WALLET / BALANCE QUERY
+  const isWalletQuery =
+    /\b(wallet|balance|saldo|address|deposit|my wallet|check balance|my address|dompet)\b/i.test(
+      clean
+    )
+
+  if (isWalletQuery && !isBuyIntent && !isSellIntent && !isLaunchIntent && !tokenAddress && !tokenSymbol) {
+    return {
+      intent: 'WALLET_QUERY',
+      confidence: 1.0,
+    }
+  }
+
+  // 9. Check for TOKEN INFO / PRICE / STATUS
   const isTokenInfo =
     /\b(info|price|harga|chart|marketcap|mcap|status)\b/i.test(clean) &&
     (!!tokenAddress || !!tokenSymbol)

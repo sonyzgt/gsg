@@ -68,6 +68,7 @@ const PERMIT2_ABI = [
 ] as const
 
 const QUICK_SUGGESTIONS = [
+  { label: 'Check Points', prompt: 'check my points' },
   { label: 'Check Balance', prompt: 'check my balance' },
   { label: 'How to launch token', prompt: 'how to launch a new token?' },
   { label: 'Buy $10 of Token', prompt: 'buy 10$ ' },
@@ -832,6 +833,45 @@ export default function AiChatWidget({
                         </button>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* 3. Render Points Overview Card on POINTS_QUERY */}
+                {msg.action?.intent === 'POINTS_QUERY' && (
+                  <div
+                    style={{ boxShadow: `3px 3px 0px 0px ${theme.color}` }}
+                    className="mt-3 bg-[#0e1115] border-2 border-white rounded-lg p-3.5 flex flex-col gap-3 font-mono"
+                  >
+                    <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                      <span className="text-[10px] font-black text-zinc-400 uppercase">
+                        // PONS_POINTS_STATUS
+                      </span>
+                      <span className="text-[10px] bg-[var(--theme-color)] text-black px-1.5 py-0.5 font-black uppercase">
+                        TWITTER DEPLOYER
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between py-1">
+                      <div className="flex flex-col">
+                        <span className="text-[11px] text-zinc-400">Account:</span>
+                        <span className="text-xs font-black text-white">
+                          {user?.twitter?.username ? `@${user.twitter.username}` : (address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'GUEST')}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-zinc-400">Reward per Token:</span>
+                        <div className="text-xs font-black text-[var(--theme-color)]">+100 PTS</div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Link
+                        href="/dashboard"
+                        className="flex-1 text-center py-2 text-[11px] font-black uppercase bg-[var(--theme-color)] text-black border border-black hover:brightness-110 rounded transition-all shadow-[1px_1px_0px_0px_#ffffff]"
+                      >
+                        VIEW DASHBOARD & LEADERBOARD ↗
+                      </Link>
+                    </div>
                   </div>
                 )}
               </div>

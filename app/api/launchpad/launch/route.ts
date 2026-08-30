@@ -324,12 +324,36 @@ export async function POST(req: NextRequest) {
       txHash,
     })
 
+    let pointsAwarded = 0
+    let totalPoints = 0
+    if (twitterHandle) {
+      try {
+        const { awardPoints } = await import('@/lib/points-system')
+        const ptRes = await awardPoints({
+          twitterHandle,
+          walletAddress: userAddr,
+          points: 100,
+          type: 'TOKEN_DEPLOY',
+          description: `Deployed token $${tokenParams.symbol}`,
+          tokenAddress: deployedTokenCa,
+          tokenSymbol: tokenParams.symbol,
+          txHash,
+        })
+        pointsAwarded = ptRes.pointsAwarded
+        totalPoints = ptRes.totalPoints
+      } catch (ptErr) {
+        console.error('[Launch API] Error awarding points:', ptErr)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       tokenAddress: deployedTokenCa,
       curveAddress: deployedCurveCa,
       txHash,
-      message: `Token $${tokenParams.symbol} successfully launched!`,
+      pointsAwarded,
+      totalPoints,
+      message: `Token $${tokenParams.symbol} successfully launched!${pointsAwarded > 0 ? ` +${pointsAwarded} Points earned.` : ''}`,
     })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Launch failed'
