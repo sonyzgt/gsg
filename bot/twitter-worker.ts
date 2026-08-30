@@ -1077,8 +1077,9 @@ export async function pollMentions() {
           if (uRes.ok) {
             const uData = await uRes.json()
             if (uData.data?.username) {
-              inReplyToHandle = uData.data.username
-              usersMap.set(inReplyToUserId, inReplyToHandle)
+              const fetchedUsername = String(uData.data.username)
+              inReplyToHandle = fetchedUsername
+              usersMap.set(String(inReplyToUserId), fetchedUsername)
             }
           }
         } catch { /* ignore */ }
