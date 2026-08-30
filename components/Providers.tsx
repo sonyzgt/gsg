@@ -45,7 +45,14 @@ export default function Providers({ children }: { children: ReactNode }) {
         appearance: {
           theme: 'dark',
           accentColor: '#10b981',
+          walletList: ['metamask', 'wallet_connect', 'coinbase_wallet', 'rainbow', 'rabby_wallet', 'zerion'],
         },
+        externalWallets: {
+          walletConnect: {
+            enabled: true,
+          },
+        },
+        walletConnectCloudProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '3a8170812b534d0ff9d794f19a901d64',
         embeddedWallets: {
           showWalletUIs: false,
           ethereum: {
