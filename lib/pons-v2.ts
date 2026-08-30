@@ -499,21 +499,20 @@ export async function getPonsTokenInfo(tokenAddress: string): Promise<PonsV2Toke
     // When token has graduated to Uniswap v4, fetch live market price from DexScreener / GeckoTerminal
     if (graduated || phase === 2) {
       try {
-        if (typeof window === 'undefined') {
-          const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${token}`, {
-            headers: { 'Accept': 'application/json' },
-            next: { revalidate: 15 },
-            signal: AbortSignal.timeout(1200),
-          })
-          if (dexRes.ok) {
-            const dexData = await dexRes.json()
-            if (dexData.pairs && dexData.pairs.length > 0) {
-              const pair = dexData.pairs[0]
-              const pNat = parseFloat(pair.priceNative || '0')
-              const pUsd = parseFloat(pair.priceUsd || '0')
-              if (pNat > 0) priceNative = pNat
-              if (pUsd > 0) priceUsd = pUsd
-            }
+        const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${token}`, {
+          headers: { 'Accept': 'application/json' },
+          cache: 'no-store',
+          signal: AbortSignal.timeout(2500),
+        })
+        if (dexRes.ok) {
+          const dexData = await dexRes.json()
+          if (dexData.pairs && dexData.pairs.length > 0) {
+            const sorted = [...dexData.pairs].sort((a: any, b: any) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))
+            const pair = sorted[0]
+            const pNat = parseFloat(pair.priceNative || '0')
+            const pUsd = parseFloat(pair.priceUsd || '0')
+            if (pNat > 0) priceNative = pNat
+            if (pUsd > 0) priceUsd = pUsd
           }
         }
       } catch {
