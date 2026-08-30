@@ -152,10 +152,10 @@ export async function POST(req: NextRequest) {
         const historyCount = ptData?.history?.length || 0
 
         replyText = userTwitter
-          ? `You have ${total.toLocaleString()} PONS Points across ${historyCount} recorded activities. Points are awarded for launching tokens via Twitter (+100 PTS). View your full history and global rank at https://ponscore.app/dashboard`
-          : `Connect your Twitter account on PONSCORE to track your PONS Points. You earn +100 Points for every token launched using your Twitter account. Visit https://ponscore.app/dashboard for the live leaderboard.`
+          ? `You have ${total.toLocaleString()} PONS Points across ${historyCount} recorded activities. Earn +10 Points for deploying tokens and +10 Points for every Buy/Sell trade above $100. View your full history and global rank at https://ponscore.app/dashboard`
+          : `Connect your Twitter account on PONSCORE to track your PONS Points. You earn +10 Points for deploying tokens and +10 Points for every trade above $100 on Robinhood Chain. Visit https://ponscore.app/dashboard for the live leaderboard.`
       } catch {
-        replyText = `PONS Points Program: Earn +100 Points for every token launched via your Twitter account or @agent_ponscore. View leaderboard at https://ponscore.app/dashboard`
+        replyText = `PONS Points Program: Earn +10 Points for every token launched or trade above $100 on Robinhood Chain. View leaderboard at https://ponscore.app/dashboard`
       }
     }
 

@@ -859,8 +859,8 @@ export default function AiChatWidget({
                         </span>
                       </div>
                       <div className="text-right">
-                        <span className="text-[10px] text-zinc-400">Reward per Token:</span>
-                        <div className="text-xs font-black text-[var(--theme-color)]">+100 PTS</div>
+                        <span className="text-[10px] text-zinc-400">Reward per Action:</span>
+                        <div className="text-xs font-black text-[var(--theme-color)]">+10 PTS</div>
                       </div>
                     </div>
 

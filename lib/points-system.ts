@@ -4,7 +4,7 @@ import { existsSync } from 'fs'
 
 const POINTS_FILE = path.join(process.cwd(), 'data', 'points_ledger.json')
 
-export type PointActivityType = 'TOKEN_DEPLOY' | 'TWITTER_TIP' | 'BONUS'
+export type PointActivityType = 'TOKEN_DEPLOY' | 'SWAP_TRADE' | 'TWITTER_TIP' | 'BONUS'
 
 export interface PointTransaction {
   id: string
@@ -53,7 +53,7 @@ export async function awardPoints({
   twitterHandle,
   twitterUserId,
   walletAddress,
-  points = 100,
+  points = 10,
   type = 'TOKEN_DEPLOY',
   description = 'Launched token via Twitter account',
   tokenAddress,
@@ -78,13 +78,22 @@ export async function awardPoints({
   const ledger = await loadPointsLedger()
   let userRecord = ledger.find((r) => r.twitterHandle.toLowerCase() === cleanHandle)
 
-  // Idempotency: avoid awarding duplicate points for the exact same token deploy / txHash
-  if (tokenAddress && userRecord) {
-    const existing = userRecord.history.find(
-      (h) => h.type === type && h.tokenAddress?.toLowerCase() === tokenAddress.toLowerCase()
-    )
-    if (existing) {
-      return { success: true, totalPoints: userRecord.totalPoints, pointsAwarded: 0 }
+  // Idempotency: avoid awarding duplicate points for the exact same token deploy or swap tx
+  if (userRecord) {
+    if (type === 'TOKEN_DEPLOY' && tokenAddress) {
+      const existing = userRecord.history.find(
+        (h) => h.type === type && h.tokenAddress?.toLowerCase() === tokenAddress.toLowerCase()
+      )
+      if (existing) {
+        return { success: true, totalPoints: userRecord.totalPoints, pointsAwarded: 0 }
+      }
+    } else if (txHash) {
+      const existing = userRecord.history.find(
+        (h) => h.txHash?.toLowerCase() === txHash.toLowerCase()
+      )
+      if (existing) {
+        return { success: true, totalPoints: userRecord.totalPoints, pointsAwarded: 0 }
+      }
     }
   }
 

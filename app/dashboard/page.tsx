@@ -160,7 +160,14 @@ function DashboardContent() {
                   style={{ boxShadow: '3px 3px 0px 0px #ffffff' }}
                   className="px-5 py-2.5 bg-[var(--theme-color)] text-black border-2 border-black font-black text-xs uppercase hover:opacity-90 active:translate-x-0.5 active:translate-y-0.5 transition-all"
                 >
-                  DEPLOY TOKEN (+100 PTS)
+                  DEPLOY TOKEN (+10 PTS)
+                </Link>
+                <Link
+                  href="/coin"
+                  style={{ boxShadow: '3px 3px 0px 0px #000000' }}
+                  className="px-5 py-2.5 bg-[#181d24] text-white border-2 border-zinc-700 hover:border-white font-black text-xs uppercase transition-all"
+                >
+                  TRADE &gt;$100 (+10 PTS)
                 </Link>
               </div>
             </div>
@@ -170,7 +177,7 @@ function DashboardContent() {
           <div className="bg-[#0e1115] border-2 border-zinc-800 p-4 sm:p-6 rounded-xl flex flex-col gap-3 shadow-[3px_3px_0px_0px_#000000]">
             <span className="text-xs font-black text-white uppercase flex items-center gap-2">
               <SparkleIcon size={16} className="text-[var(--theme-color)]" />
-              <span>PUBLIC POINTS LOOKUP // CHECK ANY TWITTER USER</span>
+              <span>PUBLIC POINTS LOOKUP // CHECK ANY TWITTER USER OR WALLET</span>
             </span>
 
             <form
@@ -186,7 +193,7 @@ function DashboardContent() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Enter Twitter handle (e.g. Ponscore)"
+                  placeholder="Enter Twitter handle or wallet address (e.g. Ponscore or 0x...)"
                   className="w-full bg-[#14181f] border-2 border-zinc-700 focus:border-white rounded-lg pl-8 pr-4 py-2 text-xs sm:text-sm text-white placeholder-zinc-500 font-mono focus:outline-none"
                 />
               </div>
@@ -237,7 +244,40 @@ function DashboardContent() {
             <div className="bg-[#0e1115] border-2 border-zinc-800 p-5 rounded-lg flex flex-col gap-1 shadow-[3px_3px_0px_0px_#000000]">
               <span className="text-[10px] font-black text-zinc-400 uppercase">// YOUR_RANK</span>
               <span className="text-3xl font-black text-yellow-400">{userRank}</span>
-              <span className="text-[11px] text-zinc-500 font-sans">+100 PTS per token launch</span>
+              <span className="text-[11px] text-zinc-500 font-sans">+10 PTS per token launch or trade &gt;$100</span>
+            </div>
+          </div>
+
+          {/* Points Quests Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-[#10141a] border-2 border-zinc-800 rounded-xl p-5 flex flex-col gap-2 shadow-[2px_2px_0px_0px_#000000]">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-white uppercase flex items-center gap-1.5">
+                  <SparkleIcon size={14} className="text-[var(--theme-color)]" />
+                  <span>1. LAUNCH / DEPLOY TOKEN</span>
+                </span>
+                <span className="text-xs font-black text-black bg-[var(--theme-color)] px-2 py-0.5 border border-black">
+                  +10 PTS
+                </span>
+              </div>
+              <p className="text-xs text-zinc-400 font-sans">
+                Deploy a new token on Robinhood Chain using your Twitter account or via tweet <code className="text-zinc-200">@agent_ponscore launch token $NAME</code>.
+              </p>
+            </div>
+
+            <div className="bg-[#10141a] border-2 border-zinc-800 rounded-xl p-5 flex flex-col gap-2 shadow-[2px_2px_0px_0px_#000000]">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-white uppercase flex items-center gap-1.5">
+                  <SparkleIcon size={14} className="text-[var(--theme-color)]" />
+                  <span>2. BUY / SELL TRADING (&gt;$100)</span>
+                </span>
+                <span className="text-xs font-black text-black bg-[var(--theme-color)] px-2 py-0.5 border border-black">
+                  +10 PTS
+                </span>
+              </div>
+              <p className="text-xs text-zinc-400 font-sans">
+                Execute any Buy or Sell trade with trade volume above $100 USD on Robinhood Chain (both Bonding Curve &amp; Uniswap V4).
+              </p>
             </div>
           </div>
 

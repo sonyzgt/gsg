@@ -332,7 +332,7 @@ export async function POST(req: NextRequest) {
         const ptRes = await awardPoints({
           twitterHandle,
           walletAddress: userAddr,
-          points: 100,
+          points: 10,
           type: 'TOKEN_DEPLOY',
           description: `Deployed token $${tokenParams.symbol}`,
           tokenAddress: deployedTokenCa,

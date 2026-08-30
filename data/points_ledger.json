@@ -1,72 +1,73 @@
 [
   {
     "twitterHandle": "ponscore",
-    "walletAddress": "0x1234567890123456789012345678901234567890",
-    "totalPoints": 410,
-    "updatedAt": 1788114929921,
+    "twitterUserId": "2093643002115727360",
+    "walletAddress": "0xa960dE53788c55e76c659fDC3d0B96C55F7e1013",
+    "totalPoints": 50,
+    "updatedAt": 1788115290757,
     "history": [
       {
-        "id": "pt_1788114929921_t5ebs",
+        "id": "pt_1788115290757_ltvk2",
         "type": "BONUS",
         "points": 10,
         "description": "Verified Twitter Bot User Bonus",
-        "timestamp": 1788114929921
+        "timestamp": 1788115290757
       },
       {
-        "id": "pt_1788114929920_p1alz",
+        "id": "pt_1788115290755_mw2zs",
         "type": "TOKEN_DEPLOY",
-        "points": 100,
+        "points": 10,
         "description": "Deployed token $TEST",
         "tokenAddress": "0xD5bc8088220Eb421D2345F6B467a9a436F42777f",
         "tokenSymbol": "TEST",
         "txHash": "0x96e94b8a988ec7b0b5715dacb535586e9f29521f41fc1ee71d4142cf436a7b23",
-        "timestamp": 1788114929920
+        "timestamp": 1788115290755
       },
       {
-        "id": "pt_1788114929918_8qiak",
+        "id": "pt_1788115290754_ky9ky",
         "type": "TOKEN_DEPLOY",
-        "points": 100,
+        "points": 10,
         "description": "Deployed token $TEST",
         "tokenAddress": "0x52a03Cd2FEE18216EE45C66D9Be8C0ee2Cd8399B",
         "tokenSymbol": "TEST",
         "txHash": "0x003631a0ede64eafee3811c4675fd42421fbb4553db196d3a57040c759df6d3b",
-        "timestamp": 1788114929918
+        "timestamp": 1788115290754
       },
       {
-        "id": "pt_1788114929915_8ipoq",
+        "id": "pt_1788115290752_7nyfu",
         "type": "TOKEN_DEPLOY",
-        "points": 100,
+        "points": 10,
+        "description": "Deployed token $TEST",
+        "tokenAddress": "0x869e8E65A35Eb22901975B33c759299001d4488E",
+        "tokenSymbol": "TEST",
+        "txHash": "0xf01c1d0cb310e58f87a7c7a27f30939e00d12dd816f03219c78fb1c54a5cac77",
+        "timestamp": 1788115290752
+      },
+      {
+        "id": "pt_1788115290750_ievps",
+        "type": "TOKEN_DEPLOY",
+        "points": 10,
         "description": "Deployed token $TEST",
         "tokenAddress": "0xe80Dd8DC5cDEe190A96c56B06B138f02BDb6310F",
         "tokenSymbol": "TEST",
         "txHash": "0xfe6cdee0628eb2f42ab73cd175c2eedb35ce64355a6b47dc183872d8bbeef3b8",
-        "timestamp": 1788114929915
-      },
-      {
-        "id": "pt_1788114129791_u6lc5",
-        "type": "TOKEN_DEPLOY",
-        "points": 100,
-        "description": "Deployed token $TEST",
-        "tokenAddress": "0x869e8E65A35Eb22901975B33c759299001d4488E",
-        "tokenSymbol": "TEST",
-        "timestamp": 1788114129791
+        "timestamp": 1788115290750
       }
-    ],
-    "twitterUserId": "2093643002115727360"
+    ]
   },
   {
     "twitterHandle": "todyresearch",
     "twitterUserId": "2002266665632100352",
     "walletAddress": "0xC38843876A894d019fC738d1fD5581850De09f65",
     "totalPoints": 10,
-    "updatedAt": 1788114929923,
+    "updatedAt": 1788115290758,
     "history": [
       {
-        "id": "pt_1788114929923_0d3pg",
+        "id": "pt_1788115290758_xxqal",
         "type": "BONUS",
         "points": 10,
         "description": "Verified Twitter Bot User Bonus",
-        "timestamp": 1788114929923
+        "timestamp": 1788115290758
       }
     ]
   },
@@ -75,14 +76,14 @@
     "twitterUserId": "1350124874782674950",
     "walletAddress": "0x129f3FB4cFd8C9908A21c6ce5882BD903ce61147",
     "totalPoints": 10,
-    "updatedAt": 1788114929924,
+    "updatedAt": 1788115290759,
     "history": [
       {
-        "id": "pt_1788114929924_7cvvz",
+        "id": "pt_1788115290759_jc1s0",
         "type": "BONUS",
         "points": 10,
         "description": "Verified Twitter Bot User Bonus",
-        "timestamp": 1788114929924
+        "timestamp": 1788115290759
       }
     ]
   },
@@ -91,14 +92,14 @@
     "twitterUserId": "2091288746343669760",
     "walletAddress": "0x38109f9A9315d7E41236A9AeB1666C5C953d5D52",
     "totalPoints": 10,
-    "updatedAt": 1788114929925,
+    "updatedAt": 1788115290761,
     "history": [
       {
-        "id": "pt_1788114929925_gykx5",
+        "id": "pt_1788115290761_dpgrx",
         "type": "BONUS",
         "points": 10,
         "description": "Verified Twitter Bot User Bonus",
-        "timestamp": 1788114929925
+        "timestamp": 1788115290761
       }
     ]
   },
@@ -107,14 +108,14 @@
     "twitterUserId": "827420548175114240",
     "walletAddress": "0x7B102f56cB83add7F302D190152557Edb0143e7A",
     "totalPoints": 10,
-    "updatedAt": 1788114929927,
+    "updatedAt": 1788115290763,
     "history": [
       {
-        "id": "pt_1788114929927_9zi3a",
+        "id": "pt_1788115290763_azz2q",
         "type": "BONUS",
         "points": 10,
         "description": "Verified Twitter Bot User Bonus",
-        "timestamp": 1788114929927
+        "timestamp": 1788115290763
       }
     ]
   },
@@ -123,14 +124,14 @@
     "twitterUserId": "tw_marcsolym",
     "walletAddress": "0xa8A1087aAE6c07ee899D7E5c9E8B0bDeBbB85E86",
     "totalPoints": 10,
-    "updatedAt": 1788114929928,
+    "updatedAt": 1788115290764,
     "history": [
       {
-        "id": "pt_1788114929928_4gkxr",
+        "id": "pt_1788115290764_27bul",
         "type": "BONUS",
         "points": 10,
         "description": "Verified Twitter Bot User Bonus",
-        "timestamp": 1788114929928
+        "timestamp": 1788115290764
       }
     ]
   },
@@ -139,14 +140,14 @@
     "twitterUserId": "tw_rahul",
     "walletAddress": "0x4226614775efb0Fa26590f3e71b777daFC6fe83a",
     "totalPoints": 10,
-    "updatedAt": 1788114929930,
+    "updatedAt": 1788115290765,
     "history": [
       {
-        "id": "pt_1788114929930_iqd9b",
+        "id": "pt_1788115290765_lr5a4",
         "type": "BONUS",
         "points": 10,
         "description": "Verified Twitter Bot User Bonus",
-        "timestamp": 1788114929930
+        "timestamp": 1788115290765
       }
     ]
   },
@@ -155,14 +156,14 @@
     "twitterUserId": "tw_meadgod",
     "walletAddress": "0x457905e9087Ec68F500ebE120443C89b622D62b1",
     "totalPoints": 10,
-    "updatedAt": 1788114929931,
+    "updatedAt": 1788115290767,
     "history": [
       {
-        "id": "pt_1788114929931_65ka0",
+        "id": "pt_1788115290767_n784w",
         "type": "BONUS",
         "points": 10,
         "description": "Verified Twitter Bot User Bonus",
-        "timestamp": 1788114929931
+        "timestamp": 1788115290767
       }
     ]
   }

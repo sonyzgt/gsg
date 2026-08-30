@@ -485,10 +485,11 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
 
       const actionText = isBuy ? `Bought $${tokenSymbol} with ${swapAmount} ETH` : `Sold ${swapAmount} $${tokenSymbol} to ETH`
       const phaseText = swapJson.route === 'UNISWAP_V4' ? 'Uniswap V4 (Migrated)' : 'Bonding Curve'
+      const pointsText = swapJson.pointsAwarded > 0 ? `\nPoints: +${swapJson.pointsAwarded} PTS (Trade >$100) (https://ponscore.app/dashboard)` : ''
 
       return {
         success: true,
-        message: `@${payload.authorHandle} ${actionText} on ${phaseText}.\n\nTX: https://robinhoodchain.blockscout.com/tx/${swapJson.txHash}`,
+        message: `@${payload.authorHandle} ${actionText} on ${phaseText}.${pointsText}\n\nTX: https://robinhoodchain.blockscout.com/tx/${swapJson.txHash}`,
         txHash: swapJson.txHash,
       }
     } catch (err: unknown) {
@@ -776,7 +777,7 @@ export async function processTweetLaunch(payload: TweetPayload): Promise<{
     const ptRes = await awardPoints({
       twitterHandle: payload.authorHandle,
       walletAddress: activeWallet,
-      points: 100,
+      points: 10,
       type: 'TOKEN_DEPLOY',
       description: `Deployed token $${tokenSymbol}`,
       tokenAddress: deployedTokenCa,

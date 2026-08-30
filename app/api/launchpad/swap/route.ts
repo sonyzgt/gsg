@@ -153,6 +153,58 @@ function buildV4SwapCalldata({
   })
 }
 
+async function checkAndAwardTradePoints({
+  twitterHandle,
+  walletAddress,
+  tokenAddress,
+  tokenSymbol,
+  txHash,
+  isBuy,
+  amountInEthOrTokens,
+  tokenPriceUsd,
+  tokenPriceNative,
+}: {
+  twitterHandle?: string
+  walletAddress?: string
+  tokenAddress: string
+  tokenSymbol: string
+  txHash: string
+  isBuy: boolean
+  amountInEthOrTokens: number
+  tokenPriceUsd?: number
+  tokenPriceNative?: number
+}): Promise<number> {
+  const ethPriceUsd = (tokenPriceUsd && tokenPriceNative && tokenPriceNative > 0) ? (tokenPriceUsd / tokenPriceNative) : 2500
+  let tradeUsdValue = 0
+
+  if (isBuy) {
+    tradeUsdValue = amountInEthOrTokens * ethPriceUsd
+  } else {
+    tradeUsdValue = amountInEthOrTokens * (tokenPriceUsd || (tokenPriceNative ? tokenPriceNative * ethPriceUsd : 0))
+  }
+
+  if (tradeUsdValue >= 100 && (twitterHandle || walletAddress)) {
+    try {
+      const { awardPoints } = await import('@/lib/points-system')
+      const targetHandle = twitterHandle || walletAddress || 'trader'
+      const ptRes = await awardPoints({
+        twitterHandle: targetHandle,
+        walletAddress,
+        points: 10,
+        type: 'SWAP_TRADE',
+        description: `${isBuy ? 'Bought' : 'Sold'} >$100 in $${tokenSymbol} (~$${Math.round(tradeUsdValue)})`,
+        tokenAddress,
+        tokenSymbol,
+        txHash,
+      })
+      return ptRes.pointsAwarded
+    } catch (e) {
+      console.error('[Swap API] Error awarding trade points:', e)
+    }
+  }
+  return 0
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -260,11 +312,24 @@ export async function POST(req: NextRequest) {
 
         await publicClient.waitForTransactionReceipt({ hash: txHash })
 
+        const ptsAwarded = await checkAndAwardTradePoints({
+          twitterHandle,
+          walletAddress: senderAddress,
+          tokenAddress: tokenCa,
+          tokenSymbol: tokenInfo.symbol,
+          txHash,
+          isBuy: true,
+          amountInEthOrTokens: parseFloat(String(amount)),
+          tokenPriceUsd: tokenInfo.priceUsd,
+          tokenPriceNative: tokenInfo.priceNative,
+        })
+
         return NextResponse.json({
           success: true,
           txHash,
           isBuy: true,
-          message: `Successfully bought $${tokenInfo.symbol} on Uniswap v4 for ${amount} ETH!`,
+          pointsAwarded: ptsAwarded,
+          message: `Successfully bought $${tokenInfo.symbol} on Uniswap v4 for ${amount} ETH!${ptsAwarded > 0 ? ` +${ptsAwarded} Points earned (Trade >$100).` : ''}`,
         })
       } else {
         const tokenBal = await publicClient.readContract({
@@ -371,13 +436,16 @@ export async function POST(req: NextRequest) {
           nonce += 1
         }
 
+        const deadline = nowSec + 1200
+        const minEthOut = 1n
+
         const calldata = buildV4SwapCalldata({
           isBuy: false,
           tokenAddress: tokenCa,
           amountIn: tokensIn.toString(),
-          minAmountOut: '1',
+          minAmountOut: minEthOut.toString(),
           deadline,
-          hookAddress: tokenInfo.poolKey?.hooks || MEME_HOOK,
+          hookAddress: MEME_HOOK,
           fee: tokenInfo.poolFee || 0,
           tickSpacing: tokenInfo.tickSpacing || 200,
         })
@@ -390,7 +458,7 @@ export async function POST(req: NextRequest) {
             data: calldata,
             chainId: 4663,
             nonce,
-            gasLimit: '0x55730', // 350,000 gas
+            gasLimit: '0x7A120',
             gasPrice: `0x${gasPrice.toString(16)}`,
             type: 0,
           },
@@ -402,11 +470,24 @@ export async function POST(req: NextRequest) {
 
         await publicClient.waitForTransactionReceipt({ hash: txHash })
 
+        const ptsAwarded = await checkAndAwardTradePoints({
+          twitterHandle,
+          walletAddress: senderAddress,
+          tokenAddress: tokenCa,
+          tokenSymbol: tokenInfo.symbol,
+          txHash,
+          isBuy: false,
+          amountInEthOrTokens: Number(tokensIn) / 1e18,
+          tokenPriceUsd: tokenInfo.priceUsd,
+          tokenPriceNative: tokenInfo.priceNative,
+        })
+
         return NextResponse.json({
           success: true,
           txHash,
           isBuy: false,
-          message: `Successfully sold ${amount} $${tokenInfo.symbol} on Uniswap v4 for ETH!`,
+          pointsAwarded: ptsAwarded,
+          message: `Successfully sold ${amount} $${tokenInfo.symbol} on Uniswap v4 for ETH!${ptsAwarded > 0 ? ` +${ptsAwarded} Points earned (Trade >$100).` : ''}`,
         })
       }
     } else {
@@ -470,11 +551,24 @@ export async function POST(req: NextRequest) {
 
         await publicClient.waitForTransactionReceipt({ hash: txHash })
 
+        const ptsAwarded = await checkAndAwardTradePoints({
+          twitterHandle,
+          walletAddress: senderAddress,
+          tokenAddress: tokenCa,
+          tokenSymbol: tokenInfo.symbol,
+          txHash,
+          isBuy: true,
+          amountInEthOrTokens: parseFloat(String(amount)),
+          tokenPriceUsd: tokenInfo.priceUsd,
+          tokenPriceNative: tokenInfo.priceNative,
+        })
+
         return NextResponse.json({
           success: true,
           txHash,
           isBuy: true,
-          message: `Successfully bought $${tokenInfo.symbol} for ${amount} ETH!`,
+          pointsAwarded: ptsAwarded,
+          message: `Successfully bought $${tokenInfo.symbol} for ${amount} ETH!${ptsAwarded > 0 ? ` +${ptsAwarded} Points earned (Trade >$100).` : ''}`,
         })
       } else {
         // ── SELL ACTION ──
@@ -586,11 +680,24 @@ export async function POST(req: NextRequest) {
 
         await publicClient.waitForTransactionReceipt({ hash: txHash })
 
+        const ptsAwarded = await checkAndAwardTradePoints({
+          twitterHandle,
+          walletAddress: senderAddress,
+          tokenAddress: tokenCa,
+          tokenSymbol: tokenInfo.symbol,
+          txHash,
+          isBuy: false,
+          amountInEthOrTokens: Number(tokensIn) / 1e18,
+          tokenPriceUsd: tokenInfo.priceUsd,
+          tokenPriceNative: tokenInfo.priceNative,
+        })
+
         return NextResponse.json({
           success: true,
           txHash,
           isBuy: false,
-          message: `Successfully sold ${amount} $${tokenInfo.symbol} for ETH!`,
+          pointsAwarded: ptsAwarded,
+          message: `Successfully sold ${amount} $${tokenInfo.symbol} for ETH!${ptsAwarded > 0 ? ` +${ptsAwarded} Points earned (Trade >$100).` : ''}`,
         })
       }
     }
