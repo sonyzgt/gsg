@@ -365,10 +365,32 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
           await pubClient.waitForTransactionReceipt({ hash: txHash })
           toast.success(`Swap successful! Bought $${token.symbol}`)
         } else {
-          toast(`Selling $${token.symbol} to Bonding Curve...`)
+          toast(`Checking allowance for $${token.symbol}...`)
           const tokensIn = parseUnits(amount, 18)
           const minQuoteOut = 0n
 
+          // Check allowance for bonding curve
+          const currentAllowance = await pubClient.readContract({
+            address: getAddress(token.tokenAddress),
+            abi: erc20Abi,
+            functionName: 'allowance',
+            args: [userAddr, getAddress(curveAddress as string)],
+          })
+
+          if (currentAllowance < tokensIn) {
+            toast(`Please approve $${token.symbol} in your wallet...`)
+            const approveHash = await walletClient.writeContract({
+              account,
+              address: getAddress(token.tokenAddress),
+              abi: erc20Abi,
+              functionName: 'approve',
+              args: [getAddress(curveAddress as string), maxUint256],
+            })
+            toast('Confirming token approval...')
+            await pubClient.waitForTransactionReceipt({ hash: approveHash })
+          }
+
+          toast(`Confirm sell of $${token.symbol} in your wallet...`)
           const calldata = encodeFunctionData({
             abi: PONS_CURVE_ABI,
             functionName: 'sell',
@@ -379,7 +401,7 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
             account,
             to: getAddress(curveAddress as string),
             data: calldata,
-            gas: 300000n,
+            gas: 350000n,
           })
 
           toast('Confirming sell on blockchain...')
@@ -388,6 +410,54 @@ export default function TokenSwapWidget({ token, onSwapSuccess }: TokenSwapWidge
         }
       } else {
         // ── ROUTE 2: UNISWAP TRADING API / UNIVERSAL ROUTER (GRADUATED) ──
+        if (!isBuy) {
+          toast(`Checking Permit2 allowance for $${token.symbol}...`)
+          const erc20Allowance = await pubClient.readContract({
+            address: getAddress(token.tokenAddress),
+            abi: erc20Abi,
+            functionName: 'allowance',
+            args: [userAddr, PERMIT2],
+          })
+          if (erc20Allowance < parseUnits(amount, 18)) {
+            toast(`Please approve $${token.symbol} on Permit2...`)
+            const appHash = await walletClient.writeContract({
+              account,
+              address: getAddress(token.tokenAddress),
+              abi: erc20Abi,
+              functionName: 'approve',
+              args: [PERMIT2, maxUint256],
+            })
+            toast('Confirming Permit2 approval...')
+            await pubClient.waitForTransactionReceipt({ hash: appHash })
+          }
+
+          const [permit2Allowance, expiration] = (await pubClient.readContract({
+            address: PERMIT2,
+            abi: PERMIT2_ABI,
+            functionName: 'allowance',
+            args: [userAddr, getAddress(token.tokenAddress), UNIVERSAL_ROUTER],
+          })) as [bigint, number, number]
+
+          const nowSec = BigInt(Math.floor(Date.now() / 1000))
+          if (permit2Allowance < parseUnits(amount, 18) || BigInt(expiration) <= nowSec) {
+            toast(`Please approve Universal Router on Permit2...`)
+            const p2AppHash = await walletClient.writeContract({
+              account,
+              address: PERMIT2,
+              abi: PERMIT2_ABI,
+              functionName: 'approve',
+              args: [
+                getAddress(token.tokenAddress),
+                UNIVERSAL_ROUTER,
+                (1n << 160n) - 1n,
+                Math.floor(Date.now() / 1000) + 30 * 86400,
+              ],
+            })
+            toast('Confirming router approval...')
+            await pubClient.waitForTransactionReceipt({ hash: p2AppHash })
+          }
+        }
+
         toast(`Fetching Uniswap swap transaction for $${token.symbol}...`)
 
         const amountInWei = isBuy ? parseEther(amount).toString() : parseUnits(amount, 18).toString()
